@@ -30,15 +30,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ServiceStack">
-      <HintPath>..\ServiceStack\bin\Release\ServiceStack.dll</HintPath>
-    </Reference>
-    <Reference Include="ServiceStack.Interfaces">
-      <HintPath>..\..\lib\ServiceStack.Interfaces.dll</HintPath>
-    </Reference>
-    <Reference Include="ServiceStack.ServiceInterface">
-      <HintPath>..\ServiceStack.ServiceInterface\bin\Release\ServiceStack.ServiceInterface.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
@@ -83,6 +74,20 @@
     <Compile Include="RuleSetForClientSideMessagesAttribute.cs" />
     <Compile Include="Mvc\ExecuteServiceStackFiltersAttribute.cs" />
     <Compile Include="ValidationResultExtension.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ServiceStack.Interfaces\ServiceStack.Interfaces.csproj">
+      <Project>{42e1c8c0-a163-44cc-92b1-8f416f2c0b01}</Project>
+      <Name>ServiceStack.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ServiceStack.ServiceInterface\ServiceStack.ServiceInterface.csproj">
+      <Project>{5a315f92-80d2-4c60-a5a4-22e027ac7e7e}</Project>
+      <Name>ServiceStack.ServiceInterface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ServiceStack\ServiceStack.csproj">
+      <Project>{680a1709-25eb-4d52-a87f-ee03ffd94baa}</Project>
+      <Name>ServiceStack</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
