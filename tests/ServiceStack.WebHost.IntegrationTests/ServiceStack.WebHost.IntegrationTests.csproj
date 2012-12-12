@@ -147,6 +147,20 @@
     <Content Include="Content\js\underscore.min.js" />
     <Content Include="Content\js\userprofile.js" />
     <Content Include="Content\js\_blank.js" />
+    <Content Include="Content\swagger-ui\css\screen.css" />
+    <Content Include="Content\swagger-ui\images\pet_store_api.png" />
+    <Content Include="Content\swagger-ui\images\wordnik_api.png" />
+    <Content Include="Content\swagger-ui\default.aspx" />
+    <Content Include="Content\swagger-ui\lib\backbone-min.js" />
+    <Content Include="Content\swagger-ui\lib\handlebars.runtime-1.0.0.beta.6.js" />
+    <Content Include="Content\swagger-ui\lib\jquery.ba-bbq.min.js" />
+    <Content Include="Content\swagger-ui\lib\jquery.min.js" />
+    <Content Include="Content\swagger-ui\lib\jquery.slideto.min.js" />
+    <Content Include="Content\swagger-ui\lib\jquery.wiggle.min.js" />
+    <Content Include="Content\swagger-ui\lib\swagger.js" />
+    <Content Include="Content\swagger-ui\lib\underscore-min.js" />
+    <Content Include="Content\swagger-ui\swagger-ui.js" />
+    <Content Include="Content\swagger-ui\swagger-ui.min.js" />
     <Content Include="Default.aspx" />
     <Content Include="user-notfound.htm" />
     <Content Include="user-default.htm" />
@@ -257,6 +271,10 @@
     <ProjectReference Include="..\..\src\ServiceStack.ServiceInterface\ServiceStack.ServiceInterface.csproj">
       <Project>{5A315F92-80D2-4C60-A5A4-22E027AC7E7E}</Project>
       <Name>ServiceStack.ServiceInterface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\ServiceStack.Swagger\ServiceStack.Swagger.csproj">
+      <Project>{01D3F057-7984-498F-8B0A-EB375701E204}</Project>
+      <Name>ServiceStack.Swagger</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\src\ServiceStack\ServiceStack.csproj">
       <Project>{680A1709-25EB-4D52-A87F-EE03FFD94BAA}</Project>

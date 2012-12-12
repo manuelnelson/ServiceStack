@@ -41,13 +41,20 @@ namespace ServiceStack
             var meta = EndpointHost.Metadata;
             foreach (var operation in meta.Operations)
             {
+                if (!meta.IsVisible(httpReq, operation))
+                    continue;
+
                 metadata.Operations.Add(new MetadataOperationType {
+                    Actions = operation.Actions,
                     Request = operation.RequestType.ToType(),
                     Response = operation.ResponseType.ToType(),
                 });
 
                 existingTypes.Add(operation.RequestType);
-                existingTypes.Add(operation.ResponseType);
+                if (operation.ResponseType != null)
+                {
+                    existingTypes.Add(operation.ResponseType);
+                }
             }
 
             foreach (var type in meta.GetAllTypes())
@@ -91,8 +98,13 @@ namespace ServiceStack
                 }
             }
 
-            httpRes.ContentType = "application/x-ssz-metatypes";
             var json = metadata.ToJson();
+
+            //httpRes.ContentType = "application/json";
+            //httpRes.Write(json);
+            //return;
+
+            httpRes.ContentType = "application/x-ssz-metatypes";
             var encJson = CryptUtils.Encrypt(EndpointHostConfig.PublicKey, json, RsaKeyLengths.Bit2048);
             httpRes.Write(encJson);
         }
@@ -102,6 +114,8 @@ namespace ServiceStack
     {
         public static MetadataType ToType(this Type type)
         {
+            if (type == null) return null;
+
             var metaType = new MetadataType {
                 Name = type.Name,
                 Namespace = type.Namespace,

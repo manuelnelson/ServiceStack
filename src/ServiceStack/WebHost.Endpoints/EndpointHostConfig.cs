@@ -20,6 +20,7 @@ using ServiceStack.Markdown;
 using ServiceStack.ServiceHost;
 using ServiceStack.ServiceModel;
 using ServiceStack.Text;
+using ServiceStack.WebHost.Endpoints.Extensions;
 using ServiceStack.WebHost.Endpoints.Support;
 
 namespace ServiceStack.WebHost.Endpoints
@@ -34,9 +35,6 @@ namespace ServiceStack.WebHost.Endpoints
         public static bool SkipPathValidation = false;
         public static string ServiceStackPath = null;
 
-        private const string DefaultUsageExamplesBaseUri =
-			"https://github.com/ServiceStack/ServiceStack.Extras/blob/master/doc/UsageExamples";
-
         private static EndpointHostConfig instance;
         public static EndpointHostConfig Instance
         {
@@ -49,26 +47,10 @@ namespace ServiceStack.WebHost.Endpoints
                             addDefaultXmlNamespace: "http://schemas.servicestack.net/types"),
                         WsdlServiceNamespace = "http://schemas.servicestack.net/types",
                         WsdlSoapActionNamespace = "http://schemas.servicestack.net/types",
-                        MetadataPageBodyHtml = @"
-    <br />
-    <h3>Client Usage Examples:</h3>
-    <ul>
-        <li><a href=""{0}/UsingServiceClients.cs"">Using Service Clients</a></li>
-        <li><a href=""{0}/UsingDtoFromAssembly.cs"">Using Dto From Assembly</a></li>
-        <li><a href=""{0}/UsingDtoFromXsd.cs"">Using Dto From Xsd</a></li>
-        <li><a href=""{0}/UsingServiceReferenceClient.cs"">Using Service Reference Client</a></li>
-        <li><a href=""{0}/UsingSvcutilGeneratedClient.cs"">Using SvcUtil Generated Client</a></li>
-        <li><a href=""{0}/UsingRawHttpClient.cs"">Using Raw Http Client</a></li>
-        <li><a href=""{0}/UsingRestAndJson.cs"">Using Rest and Json</a></li>
-        <li><a href=""{0}/UsingRestAndXml.cs"">Using Rest and Xml</a></li>
-    </ul>".Fmt(DefaultUsageExamplesBaseUri),
-                        MetadataOperationPageBodyHtml = @"
-    <br />
-    <h3>Usage Examples:</h3>
-    <ul>
-        <li><a href=""{0}/UsingRestAndJson.cs"">Using Rest and JSON</a></li>
-        <li><a href=""{0}/UsingRestAndXml.cs"">Using Rest and XML</a></li>
-    </ul>".Fmt(DefaultUsageExamplesBaseUri),
+                        MetadataPageBodyHtml = @"<br />
+                            <h3><a href=""https://github.com/ServiceStack/ServiceStack/wiki/Clients-overview"">Clients Overview</a></h3>",
+                        MetadataOperationPageBodyHtml = @"<br />
+                            <h3><a href=""https://github.com/ServiceStack/ServiceStack/wiki/Clients-overview"">Clients Overview</a></h3>",
                         LogFactory = new NullLogFactory(),
                         EnableAccessRestrictions = true,
                         WebHostPhysicalPath = "~".MapServerPath(),
@@ -111,10 +93,12 @@ namespace ServiceStack.WebHost.Endpoints
 						},
                         AppendUtf8CharsetOnContentTypes = new HashSet<string> { ContentType.Json, },
                         RawHttpHandlers = new List<Func<IHttpRequest, IHttpHandler>>(),
-                        CustomHttpHandlers = new Dictionary<HttpStatusCode, IHttpHandler>(),
+                        CustomHttpHandlers = new Dictionary<HttpStatusCode, IServiceStackHttpHandler>(),
+                        GlobalHtmlErrorHttpHandler = null,
                         MapExceptionToStatusCode = new Dictionary<Type, int>(),
                         DefaultJsonpCacheExpiration = new TimeSpan(0, 20, 0),
-                        MetadataVisibility = EndpointAttributes.Any
+                        MetadataVisibility = EndpointAttributes.Any,
+                        Return204NoContentForEmptyResponse = true,
                     };
 
                     if (instance.ServiceStackHandlerFactoryPath == null)
@@ -169,9 +153,11 @@ namespace ServiceStack.WebHost.Endpoints
             this.AppendUtf8CharsetOnContentTypes = instance.AppendUtf8CharsetOnContentTypes;
             this.RawHttpHandlers = instance.RawHttpHandlers;
             this.CustomHttpHandlers = instance.CustomHttpHandlers;
+            this.GlobalHtmlErrorHttpHandler = instance.GlobalHtmlErrorHttpHandler;
             this.MapExceptionToStatusCode = instance.MapExceptionToStatusCode;
             this.DefaultJsonpCacheExpiration = instance.DefaultJsonpCacheExpiration;
             this.MetadataVisibility = instance.MetadataVisibility;
+            this.Return204NoContentForEmptyResponse = Return204NoContentForEmptyResponse;
         }
 
         public static string GetAppConfigPath()
@@ -328,9 +314,17 @@ namespace ServiceStack.WebHost.Endpoints
         {
             return XDocument.Parse(rawXml).Root.Element("handlers")
                 .Descendants("add")
-                .Where(handler => (handler.Attribute("type").Value ?? String.Empty).StartsWith("ServiceStack"))
+                .Where(handler => EndpointHostConfig.EnsureHandlerTypeAttribute(handler).StartsWith("ServiceStack"))
                 .Select(handler => handler.Attribute("path").Value)
                 .FirstOrDefault();
+        }
+        private static string EnsureHandlerTypeAttribute(XElement handler)
+        {
+          if (handler.Attribute("type") != null && !string.IsNullOrEmpty(handler.Attribute("type").Value))
+          {
+            return handler.Attribute("type").Value;
+          }
+          return string.Empty;
         }
 
         public ServiceManager ServiceManager { get; internal set; }
@@ -341,7 +335,13 @@ namespace ServiceStack.WebHost.Endpoints
         public string WsdlServiceNamespace { get; set; }
         public string WsdlSoapActionNamespace { get; set; }
 
-        public EndpointAttributes MetadataVisibility { get; set; }
+        private EndpointAttributes metadataVisibility;
+        public EndpointAttributes MetadataVisibility
+        {
+            get { return metadataVisibility; }
+            set { metadataVisibility = value.ToAllowedFlagsSet(); }
+        }
+
         public string MetadataPageBodyHtml { get; set; }
         public string MetadataOperationPageBodyHtml { get; set; }
 
@@ -383,10 +383,12 @@ namespace ServiceStack.WebHost.Endpoints
 
         public List<Func<IHttpRequest, IHttpHandler>> RawHttpHandlers { get; set; }
 
-        public Dictionary<HttpStatusCode, IHttpHandler> CustomHttpHandlers { get; set; }
+        public Dictionary<HttpStatusCode, IServiceStackHttpHandler> CustomHttpHandlers { get; set; }
+        public IServiceStackHttpHandler GlobalHtmlErrorHttpHandler { get; set; }
         public Dictionary<Type, int> MapExceptionToStatusCode { get; set; }
 
         public TimeSpan DefaultJsonpCacheExpiration { get; set; }
+        public bool Return204NoContentForEmptyResponse { get; set; }
 
         private string defaultOperationNamespace;
         public string DefaultOperationNamespace
@@ -439,14 +441,14 @@ namespace ServiceStack.WebHost.Endpoints
             if (!HasFeature(usesFeatures))
             {
                 throw new UnauthorizedAccessException(
-                    string.Format("'{0}' Features have been disabled by your administrator", usesFeatures));
+                    String.Format("'{0}' Features have been disabled by your administrator", usesFeatures));
             }
         }
 
         public UnauthorizedAccessException UnauthorizedAccess(EndpointAttributes requestAttrs)
         {
             return new UnauthorizedAccessException(
-                string.Format("Request with '{0}' is not allowed", requestAttrs));
+                String.Format("Request with '{0}' is not allowed", requestAttrs));
         }
 
         public void AssertContentType(string contentType)
@@ -469,6 +471,26 @@ namespace ServiceStack.WebHost.Endpoints
             }
         }
 
+        public bool HasAccessToMetadata(IHttpRequest httpReq, IHttpResponse httpRes)
+        {
+            if (!HasFeature(Feature.Metadata))
+            {
+                EndpointHost.Config.HandleErrorResponse(httpReq, httpRes, HttpStatusCode.Forbidden, "Metadata Not Available");
+                return false;
+            }
+
+            if (MetadataVisibility != EndpointAttributes.Any)
+            {
+                var actualAttributes = httpReq.GetAttributes();
+                if ((actualAttributes & MetadataVisibility) != MetadataVisibility)
+                {
+                    HandleErrorResponse(httpReq, httpRes, HttpStatusCode.Forbidden, "Metadata Not Visible");
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public void HandleErrorResponse(IHttpRequest httpReq, IHttpResponse httpRes, HttpStatusCode errorStatus, string errorStatusDescription=null)
         {
             if (httpRes.IsClosed) return;
@@ -476,25 +498,13 @@ namespace ServiceStack.WebHost.Endpoints
             httpRes.StatusDescription = errorStatusDescription;
 
             var handler = GetHandlerForErrorStatus(errorStatus);
-            var ssHandler = handler as IServiceStackHttpHandler;
-            if (ssHandler != null)
-            {
-                ssHandler.ProcessRequest(httpReq, httpRes, null);
-                return;
-            }
 
-            handler.ProcessRequest(new HttpContext(
-                (HttpRequest)httpReq.OriginalRequest,
-                (HttpResponse)httpRes.OriginalResponse));
+            handler.ProcessRequest(httpReq, httpRes, httpReq.OperationName);
         }
 
-        public IHttpHandler GetHandlerForErrorStatus(HttpStatusCode errorStatus)
+        public IServiceStackHttpHandler GetHandlerForErrorStatus(HttpStatusCode errorStatus)
         {
-            IHttpHandler httpHandler = null;
-            if (CustomHttpHandlers != null)
-            {
-                CustomHttpHandlers.TryGetValue(errorStatus, out httpHandler);
-            }
+            var httpHandler = GetCustomErrorHandler(errorStatus);
 
             switch (errorStatus)
             {
@@ -508,7 +518,38 @@ namespace ServiceStack.WebHost.Endpoints
             {
                 CustomHttpHandlers.TryGetValue(HttpStatusCode.NotFound, out httpHandler);
             }
+
             return httpHandler ?? new NotFoundHttpHandler();
+        }
+
+        public IServiceStackHttpHandler GetCustomErrorHandler(int errorStatusCode)
+        {
+            try
+            {
+                return GetCustomErrorHandler((HttpStatusCode) errorStatusCode);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public IServiceStackHttpHandler GetCustomErrorHandler(HttpStatusCode errorStatus)
+        {
+            IServiceStackHttpHandler httpHandler = null;
+            if (CustomHttpHandlers != null)
+            {
+                CustomHttpHandlers.TryGetValue(errorStatus, out httpHandler);
+            }
+            return GlobalHtmlErrorHttpHandler ?? httpHandler;
+        }
+
+        public IHttpHandler GetCustomErrorHttpHandler(HttpStatusCode errorStatus)
+        {
+            var ssHandler = GetCustomErrorHandler(errorStatus);
+            if (ssHandler == null) return null;
+            var httpHandler = ssHandler as IHttpHandler;
+            return httpHandler ?? new ServiceStackHttpHandler(ssHandler);
         }
     }
 

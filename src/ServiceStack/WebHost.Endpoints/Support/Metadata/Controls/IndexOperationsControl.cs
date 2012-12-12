@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Web.UI;
 using ServiceStack.ServiceHost;
+using ServiceStack.Text;
 using ServiceStack.WebHost.Endpoints.Support.Templates;
 
 namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
@@ -19,7 +20,7 @@ namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
 
         public string RenderRow(string operation)
         {
-            var show = EndpointHost.DebugMode;
+            var show = EndpointHost.DebugMode; //Always show in DebugMode
 
             var parentPath = HttpRequest.GetParentAbsolutePath();
             var opTemplate = new StringBuilder("<tr><th>{0}</th>");
@@ -73,12 +74,27 @@ namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
 						@"<li><a href=""{0}"">{0}</a></li>",
                         soap12Config.WsdlMetadataUri);
 				}
-				wsdlTemplate.AppendLine("<ul>");
+				wsdlTemplate.AppendLine("</ul>");
 			}
 
+		    var debugOnlyInfo = new StringBuilder();
+            if (EndpointHost.DebugMode)
+            {
+                debugOnlyInfo.Append("<h3>Debug Info:</h3>");
+                debugOnlyInfo.AppendLine("<ul>");
+                debugOnlyInfo.AppendLine("<li><a href=\"operations/metadata\">Operations Metadata</a></li>");
+                debugOnlyInfo.AppendLine("</ul>");
+            }
+
 			var renderedTemplate = string.Format(
-				PageTemplate, this.Title, this.MetadataPageBodyHtml, this.XsdServiceTypesIndex,
-				operationsPart, xsdsPart, wsdlTemplate);
+				PageTemplate, 
+                this.Title, 
+                this.MetadataPageBodyHtml, 
+                this.XsdServiceTypesIndex,
+				operationsPart, 
+                xsdsPart, 
+                wsdlTemplate,
+                debugOnlyInfo);
 
 			output.Write(renderedTemplate);
 		}
@@ -128,13 +144,14 @@ namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
 			clear: left;
             margin-top: 10px;
         }}
-        LI A, TD A {{
+        A {{
             color: #369;
             font-weight: bold;
-            text-decoration: underline;
+            text-decoration: none;
         }}
-        LI A:hover, TD A:hover {{
+        A:hover {{
             color: #C30;
+            text-decoration: underline;
         }}
 		.operations TABLE {{
 			margin-left: 1.5em;
@@ -146,12 +163,13 @@ namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
 		.operations TH {{
             text-align: left;
             font-weight: normal;
+            line-height: 18px;
 			min-width: 27em;
             white-space: nowrap;
 		}}
 		.operations TD {{
             font-size: 11px;
-            line-height: 16px;
+            line-height: 18px;
             font-weight: bold;
             color: #CCC;
 			padding-left: 1.5em;
@@ -163,20 +181,23 @@ namespace ServiceStack.WebHost.Endpoints.Support.Metadata.Controls
     <h1>{0}</h1>
     
     <form id=""form1"">
-    <p>The following operations are supported. For a formal definition, please review the Service <a href=""?xsd={2}"">XSD</a>.
-    </p>
+        <p>
+            The following operations are supported. For a formal definition, please review the Service <a href=""?xsd={2}"">XSD</a>.
+        </p>
 
-	<div class=""operations"">
-	  {3}
-	</div>
+	    <div class=""operations"">
+	      {3}
+	    </div>
 
-    {1}    
+        {1}    
     
-    {4}
+        {4}
 
-	{5}
+	    {5}
  
+	    {6}
     </form>
+
 </body>
 </html>";
 		#endregion

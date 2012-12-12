@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using ServiceStack.ServiceHost;
 using ServiceStack.WebHost.Endpoints;
-using ServiceStack.WebHost.Endpoints.Metadata;
 
-namespace ServiceStack.ServiceInterface.Swagger
+namespace ServiceStack.Swagger
 {
     public class Resources
     {
@@ -29,17 +27,16 @@ namespace ServiceStack.ServiceInterface.Swagger
     }
 
     [DefaultRequest(typeof(Resources))] 
-    public class SwaggerResourcesService : Service
+    public class SwaggerResourcesService : ServiceInterface.Service
     {
         private readonly Regex resourcePathCleanerRegex = new Regex(@"/[^\/\{]*", RegexOptions.Compiled);
         internal static Regex resourceFilterRegex;
 
         public object Get(Resources request)
         {
-            var httpReq = RequestContext.Get<IHttpRequest>();
             var result = new ResourcesResponse {
                 SwaggerVersion = "1.1",
-                BasePath = httpReq.GetApplicationUrl(),
+                BasePath = Request.GetApplicationUrl(),
                 Apis = new List<RestService>()
             };
             var operations = EndpointHost.Metadata;
@@ -53,6 +50,7 @@ namespace ServiceStack.ServiceInterface.Swagger
                 if (operationType == null) continue;
                 if (operationType == typeof(Resources) || operationType == typeof(ResourceRequest))
                     continue;
+
                 CreateRestPaths(result.Apis, operationType, operationName);
             }
             return result;
@@ -74,7 +72,7 @@ namespace ServiceStack.ServiceInterface.Swagger
 
             apis.Add(new RestService {
                 Path = string.Concat("/resource", minPath),
-                Description = BaseMetadataHandler.GetDescriptionFromOperationType(operationType)
+                Description = operationType.GetDescription()
             });
         }
     }

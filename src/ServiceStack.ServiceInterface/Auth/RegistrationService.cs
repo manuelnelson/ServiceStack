@@ -1,28 +1,30 @@
 ﻿using System;
 using System.Configuration;
 using System.Globalization;
+using System.Runtime.Serialization;
 using ServiceStack.Common;
 using ServiceStack.Common.Web;
 using ServiceStack.FluentValidation;
 using ServiceStack.ServiceHost;
 using ServiceStack.ServiceInterface.ServiceModel;
 using ServiceStack.ServiceInterface.Validation;
-using ServiceStack.WebHost.Endpoints;
 
 namespace ServiceStack.ServiceInterface.Auth
 {
-    public class Registration
+    [DataContract]
+    public class Registration : IReturn<RegistrationResponse>
     {
-        public string UserName { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string DisplayName { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public bool? AutoLogin { get; set; }
-        public string Continue { get; set; }
+        [DataMember(Order = 1)] public string UserName { get; set; }
+        [DataMember(Order = 2)] public string FirstName { get; set; }
+        [DataMember(Order = 3)] public string LastName { get; set; }
+        [DataMember(Order = 4)] public string DisplayName { get; set; }
+        [DataMember(Order = 5)] public string Email { get; set; }
+        [DataMember(Order = 6)] public string Password { get; set; }
+        [DataMember(Order = 7)] public bool? AutoLogin { get; set; }
+        [DataMember(Order = 8)] public string Continue { get; set; }
     }
 
+    [DataContract]
     public class RegistrationResponse
     {
         public RegistrationResponse()
@@ -30,15 +32,11 @@ namespace ServiceStack.ServiceInterface.Auth
             this.ResponseStatus = new ResponseStatus();
         }
 
-        public string UserId { get; set; }
-
-        public string SessionId { get; set; }
-
-        public string UserName { get; set; }
-
-        public string ReferrerUrl { get; set; }
-
-        public ResponseStatus ResponseStatus { get; set; }
+        [DataMember(Order = 1)] public string UserId { get; set; }
+        [DataMember(Order = 2)] public string SessionId { get; set; }
+        [DataMember(Order = 3)] public string UserName { get; set; }
+        [DataMember(Order = 4)] public string ReferrerUrl { get; set; }
+        [DataMember(Order = 5)] public ResponseStatus ResponseStatus { get; set; }
     }
 
     public class FullRegistrationValidator : RegistrationValidator
@@ -114,30 +112,38 @@ namespace ServiceStack.ServiceInterface.Auth
             var newUserAuth = ToUserAuth(request);
             var existingUser = UserAuthRepo.GetUserAuth(session, null);
 
-            var user = existingUser != null
-                ? this.UserAuthRepo.UpdateUserAuth(existingUser, newUserAuth, request.Password)
-                : this.UserAuthRepo.CreateUserAuth(newUserAuth, request.Password);
+            var registerNewUser = existingUser == null;
+            var user = registerNewUser
+                ? this.UserAuthRepo.CreateUserAuth(newUserAuth, request.Password)
+                : this.UserAuthRepo.UpdateUserAuth(existingUser, newUserAuth, request.Password);
+
+            if (registerNewUser)
+            {
+                session.OnRegistered(this);
+            }
 
             if (request.AutoLogin.GetValueOrDefault())
             {
-                var authService = base.ResolveService<AuthService>();
-                var authResponse = authService.Post(new Auth {
-                    UserName = request.UserName ?? request.Email,
-                    Password = request.Password
-                });
-
-                if (authResponse is IHttpError)
-                    throw (Exception)authResponse;
-
-                var typedResponse = authResponse as AuthResponse;
-                if (typedResponse != null)
+                using (var authService = base.ResolveService<AuthService>())
                 {
-                    response = new RegistrationResponse {
-                        SessionId = typedResponse.SessionId,
-                        UserName = typedResponse.UserName,
-                        ReferrerUrl = typedResponse.ReferrerUrl,
-                        UserId = user.Id.ToString(CultureInfo.InvariantCulture),
-                    };
+                    var authResponse = authService.Post(new Auth {
+                        UserName = request.UserName ?? request.Email,
+                        Password = request.Password
+                    });
+
+                    if (authResponse is IHttpError)
+                        throw (Exception)authResponse;
+
+                    var typedResponse = authResponse as AuthResponse;
+                    if (typedResponse != null)
+                    {
+                        response = new RegistrationResponse {
+                            SessionId = typedResponse.SessionId,
+                            UserName = typedResponse.UserName,
+                            ReferrerUrl = typedResponse.ReferrerUrl,
+                            UserId = user.Id.ToString(CultureInfo.InvariantCulture),
+                        };
+                    }
                 }
             }
 
