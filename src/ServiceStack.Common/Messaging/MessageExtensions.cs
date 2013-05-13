@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
+using System.Linq;
 using ServiceStack.Text;
 
 namespace ServiceStack.Messaging
@@ -26,8 +27,8 @@ namespace ServiceStack.Messaging
             if (toMessageFn != null) return toMessageFn;
 
             var genericType = typeof(MessageExtensions<>).MakeGenericType(type);
-            var mi = genericType.GetMethod("ConvertToMessage", BindingFlags.Public | BindingFlags.Static);
-            toMessageFn = (ToMessageDelegate)Delegate.CreateDelegate(typeof(ToMessageDelegate), mi);
+            var mi = genericType.GetPublicStaticMethod("ConvertToMessage");
+            toMessageFn = (ToMessageDelegate)mi.MakeDelegate(typeof(ToMessageDelegate));
 
             Dictionary<Type, ToMessageDelegate> snapshot, newCache;
             do

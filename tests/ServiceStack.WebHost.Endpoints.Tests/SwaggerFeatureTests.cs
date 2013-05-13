@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
@@ -7,6 +8,7 @@ using ServiceStack.ServiceHost;
 using ServiceStack.ServiceClient.Web;
 using ServiceStack.Service;
 using ServiceStack.Api.Swagger;
+using ServiceStack.ServiceInterface.Cors;
 using ServiceStack.Text;
 
 namespace ServiceStack.WebHost.Endpoints.Tests
@@ -21,18 +23,168 @@ namespace ServiceStack.WebHost.Endpoints.Tests
         public string Name { get; set; }
     }
 
+    [ServiceHost.Api]
+    [Route("/swaggerGetList/{Name}", "GET")]
+    public class SwaggerGetListRequest : IReturn<List<SwaggerFeatureResponse>>
+    {
+        public string Name { get; set; }
+    }
+
+    [ServiceHost.Api]
+    [Route("/swaggerGetArray/{Name}", "GET")]
+    public class SwaggerGetArrayRequest : IReturn<SwaggerFeatureResponse[]>
+    {
+        public string Name { get; set; }
+    }
+    
+    [ServiceHost.Api]
+    [Route("/swaggerModels/{UrlParam}", "POST")]
+    public class SwaggerModelsRequest : IReturn<SwaggerFeatureResponse>
+    {
+        [ApiMember(Name = "UrlParam", Description = "URL parameter",
+            ParameterType = "path", DataType = "string", IsRequired = true)]
+        public string UrlParam { get; set; }
+
+        [ApiMember(Name = "RequestBody", Description = "The request body",
+            ParameterType = "body", DataType = "SwaggerModelsRequest", IsRequired = true)]
+        [System.ComponentModel.Description("Name description")]
+        public string Name { get; set; }
+
+        [System.ComponentModel.Description("NestedModel description")]
+        public SwaggerNestedModel NestedModel { get; set;}
+
+        public List<SwaggerNestedModel2> ListProperty { get; set; }
+
+        public SwaggerNestedModel3[] ArrayProperty { get; set; }
+    }
+
+    public class SwaggerNestedModel
+    {
+        [System.ComponentModel.Description("NestedProperty description")]
+        public bool NestedProperty { get; set;}
+    }
+
+    public class SwaggerNestedModel2
+    {
+        [System.ComponentModel.Description("NestedProperty2 description")]
+        public bool NestedProperty2 { get; set;}
+    }
+
+    public class SwaggerNestedModel3
+    {
+        [System.ComponentModel.Description("NestedProperty3 description")]
+        public bool NestedProperty3 { get; set;}
+    }
+
+    [ServiceHost.Api]
+    [Route("/swagger2/NameIsNotSetRequest", "GET")]
+    public class NameIsNotSetRequest
+    {
+        [ApiMember]
+        public string Name { get; set; }
+    }
+
+
+    [ServiceHost.Api("test")]
+    [Route("/swg3/conference/count", "GET")]
+    public class MultipleTestRequest : IReturn<int>
+    {
+        [ApiMember]
+        public string Name { get; set; }
+    }
+
+    [ServiceHost.Api]
+    [Route("/swg3/conference/{Name}/conferences", "POST")]
+    [Route("/swgb3/conference/{Name}/conferences", "POST")]
+    public class MultipleTest2Request : IReturn<object>
+    {
+        [ApiMember]
+        public string Name { get; set; }
+    }
+
+    [ServiceHost.Api]
+    [Route("/swg3/conference/{Name}/conferences", "DELETE")]
+    public class MultipleTest3Request : IReturn<object>
+    {
+        [ApiMember]
+        public string Name { get; set; }
+    }
+
+    [ServiceHost.Api]
+    [Route("/swg3/conference", "GET")]
+    public class MultipleTest4Request : IReturn<object>
+    {
+        [ApiMember]
+        public string Name { get; set; }
+    }
+
+
+
     public class SwaggerFeatureResponse
     {
         public bool IsSuccess { get; set; }
     }
 
-    public class SwaggerFeatureService : IService<SwaggerFeatureRequest>
+    public class MultipleTestRequestService : ServiceInterface.Service
     {
-        public object Execute(SwaggerFeatureRequest request)
+        public object Get(MultipleTestRequest request)
+        {
+            return null;
+        }
+
+        public object Post(MultipleTest2Request request)
+        {
+            return null;
+        }
+
+        public object Delete(MultipleTest3Request request)
+        {
+            return null;
+        }
+    }
+    public class MultipleTest2RequestService : ServiceInterface.Service
+    {
+        public object Get(MultipleTest4Request request)
+        {
+            return null;
+        }
+    }
+
+
+    public class SwaggerFeatureService : ServiceInterface.Service
+    {
+        public object Get(SwaggerFeatureRequest request)
         {
             return new SwaggerFeatureResponse { IsSuccess = true };
         }
+
+        public object Post(SwaggerFeatureRequest request)
+        {
+            return new SwaggerFeatureResponse { IsSuccess = true };
+        }
+
+        public object Get(NameIsNotSetRequest request)
+        {
+            return 0;
+        }
+
+        public object Post(SwaggerModelsRequest request)
+        {
+            return new SwaggerFeatureResponse { IsSuccess = true };
+        }
+
+        public object Get(SwaggerGetListRequest request)
+        {
+            return new List<SwaggerFeatureResponse> { new SwaggerFeatureResponse { IsSuccess = true } };
+        }
+
+        public object Get(SwaggerGetArrayRequest request)
+        {
+            return new[] { new SwaggerFeatureResponse { IsSuccess = true } };
+        }
     }
+
+
     
     [TestFixture]
     public class SwaggerFeatureServiceTests
@@ -83,11 +235,44 @@ namespace ServiceStack.WebHost.Endpoints.Tests
         [Test, Explicit]
         public void RunFor5Mins()
         {
+            appHost.LoadPlugin(new CorsFeature("http://localhost:50000"));
+
+            Debug.WriteLine(ListeningOn + "resources");
             Thread.Sleep(TimeSpan.FromMinutes(5));
         }
 
         [Test, TestCaseSource("RestClients")]
-        public void ShouldListServices(IRestClient client)
+        public void Should_get_default_name_from_property(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swagger2/NameIsNotSetRequest");
+
+            var p = resource.Apis.SelectMany(t => t.Operations).SelectMany(t => t.Parameters);
+            Assert.That(p.Count(), Is.EqualTo(1));
+            Assert.That(p.FirstOrDefault(t=>t.Name == "Name"), Is.Not.Null);
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_group_similar_services(IRestClient client)
+        {
+            var resources = client.Get<ResourcesResponse>("/resources");
+            resources.PrintDump();
+
+            var swagger = resources.Apis.Where(t => t.Path.Contains("/resource/swg3"));
+            Assert.That(swagger.Count(), Is.EqualTo(1));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_distinct_base_path(IRestClient client)
+        {
+            var resources = client.Get<ResourcesResponse>("/resources");
+            resources.PrintDump();
+
+            var swagger = resources.Apis.Where(t => t.Path.Contains("/resource/swgb3"));
+            Assert.That(swagger.Count(), Is.EqualTo(1));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_list_services(IRestClient client)
         {
             var resources = client.Get<ResourcesResponse>("/resources");
             Assert.That(resources.BasePath, Is.EqualTo(BaseUrl));
@@ -100,7 +285,7 @@ namespace ServiceStack.WebHost.Endpoints.Tests
         }
 
         [Test, TestCaseSource("RestClients")]
-        public void ShouldRetrieveServiceInfo(IRestClient client)
+        public void Should_retrieve_service_parameters(IRestClient client)
         {
             var resource = client.Get<ResourceResponse>("/resource/swagger");
             Assert.That(resource.BasePath, Is.EqualTo(BaseUrl));
@@ -130,6 +315,114 @@ namespace ServiceStack.WebHost.Endpoints.Tests
             Assert.That(postOperation.Summary, Is.EqualTo("POST Summary"));
             Assert.That(postOperation.Notes, Is.EqualTo("POST Notes"));
             Assert.That(postOperation.HttpMethod, Is.EqualTo("POST"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_response_class_name(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerModels");
+            Assert.That(resource.Apis, Is.Not.Empty);
+
+            var postOperation = resource.Apis.SelectMany(api => api.Operations).Single(t => t.HttpMethod == "POST");
+            postOperation.PrintDump();
+            Assert.That(postOperation.ResponseClass, Is.EqualTo(typeof(SwaggerFeatureResponse).Name));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_list_response_type_info(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerGetList");
+            Assert.That(resource.Apis, Is.Not.Empty);
+
+            var operation = resource.Apis.SelectMany(api => api.Operations).Single(t => t.HttpMethod == "GET");
+            operation.PrintDump();
+            Assert.That(operation.ResponseClass, Is.EqualTo("List[SwaggerFeatureResponse]"));
+            Assert.That(resource.Models.ContainsKey("SwaggerFeatureResponse"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_array_response_type_info(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerGetArray");
+            Assert.That(resource.Apis, Is.Not.Empty);
+
+            var operation = resource.Apis.SelectMany(api => api.Operations).Single(t => t.HttpMethod == "GET");
+            operation.PrintDump();
+            Assert.That(operation.ResponseClass, Is.EqualTo("List[SwaggerFeatureResponse]"));
+            Assert.That(resource.Models.ContainsKey("SwaggerFeatureResponse"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_response_model(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerModels");
+            Assert.That(resource.Models, Is.Not.Empty);
+
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerFeatureResponse).Name), Is.True);
+            var responseClassModel = resource.Models[typeof(SwaggerFeatureResponse).Name];
+            responseClassModel.PrintDump();
+
+            Assert.That(responseClassModel.Id, Is.EqualTo(typeof(SwaggerFeatureResponse).Name));
+            Assert.That(responseClassModel.Properties, Is.Not.Empty);
+            Assert.That(responseClassModel.Properties.ContainsKey("IsSuccess"), Is.True);
+            Assert.That(responseClassModel.Properties["IsSuccess"].Type, Is.EqualTo("bool"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_request_body_model(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerModels");
+            Assert.That(resource.Models, Is.Not.Empty);
+            resource.Models.PrintDump();
+
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerModelsRequest).Name), Is.True);
+            var requestClassModel = resource.Models[typeof(SwaggerModelsRequest).Name];
+
+            Assert.That(requestClassModel.Id, Is.EqualTo(typeof(SwaggerModelsRequest).Name));
+            Assert.That(requestClassModel.Properties, Is.Not.Empty);
+
+            Assert.That(requestClassModel.Properties.ContainsKey("UrlParam"), Is.False);
+
+            Assert.That(requestClassModel.Properties.ContainsKey("Name"), Is.True);
+            Assert.That(requestClassModel.Properties["Name"].Type, Is.EqualTo("string"));
+            Assert.That(requestClassModel.Properties["Name"].Description, Is.EqualTo("Name description"));
+
+            Assert.That(requestClassModel.Properties.ContainsKey("NestedModel"), Is.True);
+            Assert.That(requestClassModel.Properties["NestedModel"].Type, Is.EqualTo("SwaggerNestedModel"));
+            Assert.That(requestClassModel.Properties["NestedModel"].Description, Is.EqualTo("NestedModel description"));
+
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerNestedModel).Name), Is.True);
+            var nestedClassModel = resource.Models[typeof(SwaggerNestedModel).Name];
+
+            Assert.That(nestedClassModel.Properties.ContainsKey("NestedProperty"), Is.True);
+            Assert.That(nestedClassModel.Properties["NestedProperty"].Type, Is.EqualTo("bool"));
+            Assert.That(nestedClassModel.Properties["NestedProperty"].Description, Is.EqualTo("NestedProperty description"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_list_property_model(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerModels");
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerModelsRequest).Name), Is.True);
+            var requestClassModel = resource.Models[typeof(SwaggerModelsRequest).Name];
+
+            Assert.That(requestClassModel.Properties.ContainsKey("ListProperty"), Is.True);
+            Assert.That(requestClassModel.Properties["ListProperty"].Type, Is.EqualTo("Array"));
+            Assert.That(requestClassModel.Properties["ListProperty"].Items["$ref"], Is.EqualTo(typeof(SwaggerNestedModel2).Name));
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerNestedModel2).Name), Is.True);
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Should_retrieve_array_property_model(IRestClient client)
+        {
+            var resource = client.Get<ResourceResponse>("/resource/swaggerModels");
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerModelsRequest).Name), Is.True);
+            var requestClassModel = resource.Models[typeof(SwaggerModelsRequest).Name];
+
+            Assert.That(requestClassModel.Properties.ContainsKey("ArrayProperty"), Is.True);
+            Assert.That(requestClassModel.Properties["ArrayProperty"].Type, Is.EqualTo("Array"));
+            Assert.That(requestClassModel.Properties["ArrayProperty"].Items["$ref"], Is.EqualTo(typeof(SwaggerNestedModel3).Name));
+            Assert.That(resource.Models.ContainsKey(typeof(SwaggerNestedModel3).Name), Is.True);
         }
     }
 }

@@ -84,6 +84,13 @@ namespace ServiceStack.ServiceHost
                 .ToList();
         }
 
+        public Operation GetOperation(Type operationType)
+        {
+            Operation op;
+            OperationsMap.TryGetValue(operationType, out op);
+            return op;
+        }
+
         public List<string> GetImplementedActions(Type serviceType, Type requestType)
         {
             if (typeof(IService).IsAssignableFrom(serviceType))
@@ -168,17 +175,17 @@ namespace ServiceStack.ServiceHost
 
         public List<string> GetAllOperationNames()
         {
-            return Operations.Select(x => x.RequestType.Name).ToList();
+            return Operations.Select(x => x.RequestType.Name).OrderBy(operation => operation).ToList();
         }
 
         public List<string> GetOperationNamesForMetadata(IHttpRequest httpReq)
         {
-            return Operations.Select(x => x.RequestType.Name).ToList();
+            return GetAllOperationNames();
         }
 
         public List<string> GetOperationNamesForMetadata(IHttpRequest httpReq, Format format)
         {
-            return Operations.Select(x => x.RequestType.Name).ToList();
+            return GetAllOperationNames();
         }
 
         public bool IsVisible(IHttpRequest httpReq, Operation operation)
@@ -241,6 +248,24 @@ namespace ServiceStack.ServiceHost
             return allowsFormat;
         }
 
+        public bool CanAccess(Format format, string operationName)
+        {
+            if (EndpointHost.Config != null && !EndpointHost.Config.EnableAccessRestrictions)
+                return true;
+
+            Operation operation;
+            OperationNamesMap.TryGetValue(operationName.ToLower(), out operation);
+            if (operation == null) return false;
+
+            var canCall = HasImplementation(operation, format);
+            if (!canCall) return false;
+
+            if (operation.RestrictTo == null) return true;
+
+            var allowsFormat = operation.RestrictTo.HasAccessTo((EndpointAttributes)(long)format);
+            return allowsFormat;
+        }
+
         public bool HasImplementation(Operation operation, Format format)
         {
             if (format == Format.Soap11 || format == Format.Soap12)
@@ -248,7 +273,7 @@ namespace ServiceStack.ServiceHost
                 if (operation.Actions == null) return false;
 
                 return operation.Actions.Contains("POST")
-                    || operation.Actions.Contains("ANY");
+                    || operation.Actions.Contains(ActionContext.AnyAction);
             }
             return true;
         }
@@ -308,17 +333,21 @@ namespace ServiceStack.ServiceHost
             return allTypes;
         }
 
-        public List<string> GetReplyOperationNames()
+        public List<string> GetReplyOperationNames(Format format)
         {
             return Metadata.OperationsMap.Values
+                .Where(x => EndpointHost.Config != null
+                    && EndpointHost.Config.MetadataPagesConfig.CanAccess(format, x.Name))
                 .Where(x => !x.IsOneWay)
                 .Select(x => x.RequestType.Name)
                 .ToList();
         }
 
-        public List<string> GetOneWayOperationNames()
+        public List<string> GetOneWayOperationNames(Format format)
         {
             return Metadata.OperationsMap.Values
+                .Where(x => EndpointHost.Config != null
+                    && EndpointHost.Config.MetadataPagesConfig.CanAccess(format, x.Name))
                 .Where(x => x.IsOneWay)
                 .Select(x => x.RequestType.Name)
                 .ToList();
@@ -370,8 +399,20 @@ namespace ServiceStack.ServiceHost
 
         public static string GetDescription(this Type operationType)
         {
-            var apiAttr = operationType.GetCustomAttributes(typeof(Api), true).OfType<Api>().FirstOrDefault();
+            var apiAttr = operationType.GetCustomAttributes(typeof(ApiAttribute), true).OfType<ApiAttribute>().FirstOrDefault();
             return apiAttr != null ? apiAttr.Description : "";
+        }
+
+        public static List<ApiMemberAttribute> GetApiMembers(this Type operationType)
+        {
+            var attrs = operationType
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public)
+                .SelectMany(x =>
+                    x.GetCustomAttributes(typeof(ApiMemberAttribute), true).OfType<ApiMemberAttribute>()
+                )
+                .ToList();
+
+            return attrs;
         }
     }
 

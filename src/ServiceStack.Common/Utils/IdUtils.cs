@@ -1,7 +1,11 @@
 using System;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using ServiceStack.Common.Reflection;
 using ServiceStack.DesignPatterns.Model;
+using ServiceStack.Text;
 
 namespace ServiceStack.Common.Utils
 {
@@ -23,16 +27,26 @@ namespace ServiceStack.Common.Utils
             }
 #endif
 
-            if (typeof(T).IsClass
-                && typeof(T).GetProperty(IdUtils.IdField) != null
-                && typeof(T).GetProperty(IdUtils.IdField).GetGetMethod() != null)
+            if (typeof(T).IsClass())
             {
-                CanGetId = HasPropertyId<T>.GetId;
+                if (typeof(T).GetPropertyInfo(IdUtils.IdField) != null
+                    && typeof(T).GetPropertyInfo(IdUtils.IdField).GetMethodInfo() != null)
+                {
+                    CanGetId = HasPropertyId<T>.GetId;
+                    return;
+                }
+
+                foreach (var pi in typeof(T).GetPublicProperties()
+                    .Where(pi => pi.CustomAttributes()
+                             .Cast<Attribute>()
+                             .Any(attr => attr.GetType().Name == "PrimaryKeyAttribute")))
+                {
+                    CanGetId = StaticAccessors<T>.ValueUnTypedGetPropertyTypeFn(pi);
+                    return;
+                }
             }
-            else
-            {
-                CanGetId = x => x.GetHashCode();
-            }
+
+            CanGetId = x => x.GetHashCode();
         }
 
         public static object GetId(T entity)
@@ -47,7 +61,7 @@ namespace ServiceStack.Common.Utils
 
         static HasPropertyId()
         {
-            var pi = typeof(TEntity).GetProperty(IdUtils.IdField);
+            var pi = typeof(TEntity).GetPropertyInfo(IdUtils.IdField);
             GetIdFn = StaticAccessors<TEntity>.ValueUnTypedGetPropertyTypeFn(pi);
         }
 
@@ -110,7 +124,7 @@ namespace ServiceStack.Common.Utils
 
         public static object GetObjectId(this object entity)
         {
-            return entity.GetType().GetProperty(IdField).GetGetMethod().Invoke(entity, new object[0]);
+            return entity.GetType().GetPropertyInfo(IdField).GetMethodInfo().Invoke(entity, new object[0]);
         }
 
         public static object GetId<T>(this T entity)
@@ -146,7 +160,7 @@ namespace ServiceStack.Common.Utils
             var dir1 = idValue.Substring(0, 2);
             var dir2 = idValue.Substring(2, 2);
 
-            var path = string.Format("{1}{0}{2}{0}{3}{0}{4}", Path.DirectorySeparatorChar,
+            var path = string.Format("{1}{0}{2}{0}{3}{0}{4}", Text.StringExtensions.DirSeparatorChar,
                 rootDir, dir1, dir2, idValue);
 
             return path;

@@ -92,7 +92,12 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 
 		public string GetRawBody()
 		{
-			using (var reader = new StreamReader(request.InputStream))
+            if (bufferedStream != null)
+            {
+                return bufferedStream.ToArray().FromUtf8Bytes();
+            }
+
+            using (var reader = new StreamReader(InputStream))
 			{
 				return reader.ReadToEnd();
 			}
@@ -113,12 +118,31 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
             get { return request.UserHostAddress; }
         }
 
+	    public string XForwardedFor
+	    {
+	        get
+	        {
+	            return string.IsNullOrEmpty(request.Headers[HttpHeaders.XForwardedFor]) ? null : request.Headers[HttpHeaders.XForwardedFor];
+	        }
+	    }
+
+        public string XRealIp
+        {
+            get
+            {
+                return string.IsNullOrEmpty(request.Headers[HttpHeaders.XRealIp]) ? null : request.Headers[HttpHeaders.XRealIp];
+            }
+        }
+
         private string remoteIp;
         public string RemoteIp
         {
             get
             {
-                return remoteIp ?? (remoteIp = request.Headers[HttpHeaders.XForwardedFor] ?? (request.Headers[HttpHeaders.XRealIp] ?? request.UserHostAddress));
+                return remoteIp ?? 
+                    (remoteIp = XForwardedFor ?? 
+                                (XRealIp ?? 
+                                ((request.RemoteEndPoint != null) ? request.RemoteEndPoint.ToString() : null)));
             }
         }
 
@@ -149,7 +173,7 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 		public string PathInfo
 		{
 			get
-			{				
+			{
 				if (this.pathInfo == null)
 				{
                     var mode = EndpointHost.Config.ServiceStackHandlerFactoryPath;
@@ -168,6 +192,7 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 						this.pathInfo = request.RawUrl;
 					}
 
+                    this.pathInfo = this.pathInfo.UrlDecode();
                     this.pathInfo = NormalizePathInfo(pathInfo, mode);
 				}
 				return this.pathInfo;
@@ -203,9 +228,10 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 			get { return request.Headers; }
 		}
 
+	    private NameValueCollection queryString;
 		public NameValueCollection QueryString
 		{
-			get { return this.request.QueryString; }
+            get { return queryString ?? (queryString = HttpUtility.ParseQueryString(request.Url.Query)); }
 		}
 
 		public NameValueCollection FormData
@@ -213,15 +239,28 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 			get { return this.Form; }
 		}
 
-		private string httpMethod;
-		public string HttpMethod
-		{
-			get
-			{
-				return httpMethod
-					?? (httpMethod = request.Headers[HttpHeaders.XHttpMethodOverride] ?? request.HttpMethod);
-			}
-		}
+        public bool IsLocal
+        {
+            get { return request.IsLocal; }
+        }
+
+        private string httpMethod;
+        public string HttpMethod
+        {
+            get
+            {
+                return httpMethod
+                    ?? (httpMethod = Param(HttpHeaders.XHttpMethodOverride)
+                    ?? request.HttpMethod);
+            }
+        }
+
+        public string Param(string name)
+        {
+            return Headers[name]
+                ?? QueryString[name]
+                ?? FormData[name];
+        }
 
 		public string ContentType
 		{
@@ -233,10 +272,22 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 			get { return request.ContentEncoding; }
 		}
 
-		public Stream InputStream
-		{
-			get { return request.InputStream; }
-		}
+        public bool UseBufferedStream
+        {
+            get { return bufferedStream != null; }
+            set
+            {
+                bufferedStream = value
+                    ? bufferedStream ?? new MemoryStream(request.InputStream.ReadFully())
+                    : null;
+            }
+        }
+
+        private MemoryStream bufferedStream;
+        public Stream InputStream
+        {
+            get { return bufferedStream ?? request.InputStream; }
+        }
 
 		public long ContentLength
 		{
@@ -281,8 +332,15 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 			if (stream is MemoryStream)
 			{
 				var other = (MemoryStream)stream;
-				return new MemoryStream(other.GetBuffer(), 0, (int)other.Length, false, true);
-			}
+                try
+                {
+                    return new MemoryStream(other.GetBuffer(), 0, (int)other.Length, false, true);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return new MemoryStream(other.ToArray(), 0, (int)other.Length, false, true);
+                }
+            }
 
 			return stream;
 		}

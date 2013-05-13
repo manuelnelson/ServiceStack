@@ -86,6 +86,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\GlobalAssemblyInfo.cs">
+      <Link>Properties\GlobalAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="CacheAccess\ICacheClearable.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -223,6 +226,7 @@
     <Compile Include="DataAnnotations\IndexAttribute.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DataAnnotations\MetaAttribute.cs" />
     <Compile Include="DataAnnotations\ReferencesAttribute.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -286,6 +290,10 @@
     <Compile Include="DesignPatterns\Translator\ITranslator.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="IO\IVirtualDirectory.cs" />
+    <Compile Include="IO\IVirtualFile.cs" />
+    <Compile Include="IO\IVirtualNode.cs" />
+    <Compile Include="IO\IVirtualPathProvider.cs" />
     <Compile Include="Logging\ILog.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -467,8 +475,9 @@
     <Compile Include="SearchIndex\FullTextIndexFieldAttribute.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ServiceHost\Api.cs" />
+    <Compile Include="ServiceHost\ApiAttribute.cs" />
     <Compile Include="ServiceHost\ApiMemberAttribute.cs" />
+    <Compile Include="ServiceHost\ApiResponse.cs" />
     <Compile Include="ServiceHost\IRestOptionsService.cs" />
     <Compile Include="ServiceHost\IService.cs" />
     <Compile Include="ServiceHost\IExpress.cs" />
@@ -602,6 +611,7 @@
     <Compile Include="ServiceInterface.ServiceModel\ResponseStatus.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Service\IPartialWriter.cs" />
     <Compile Include="Service\IOneWayClient.cs">
       <SubType>Code</SubType>
     </Compile>

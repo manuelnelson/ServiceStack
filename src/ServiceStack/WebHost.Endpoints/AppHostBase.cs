@@ -8,6 +8,7 @@ using Funq;
 using ServiceStack.Common;
 using ServiceStack.Configuration;
 using ServiceStack.Html;
+using ServiceStack.IO;
 using ServiceStack.Logging;
 using ServiceStack.ServiceHost;
 using ServiceStack.VirtualPath;
@@ -20,7 +21,7 @@ namespace ServiceStack.WebHost.Endpoints
 	/// ASP.NET application.
 	/// </summary>
 	public abstract class AppHostBase
-		: IFunqlet, IDisposable, IAppHost
+        : IFunqlet, IDisposable, IAppHost, IHasContainer
 	{
 		private readonly ILog log = LogManager.GetLogger(typeof(AppHostBase));
 
@@ -32,7 +33,7 @@ namespace ServiceStack.WebHost.Endpoints
 		}
 
 		protected virtual ServiceManager CreateServiceManager(params Assembly[] assembliesWithServices)
-		{		
+		{
 			return new ServiceManager(assembliesWithServices);
 			//Alternative way to inject Container + Service Resolver strategy
 			//return new ServiceManager(new Container(),

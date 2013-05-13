@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using ServiceStack.Text;
 
 namespace ServiceStack.Common.Reflection
 {
@@ -46,7 +47,7 @@ namespace ServiceStack.Common.Reflection
 
         public PropertyAccessor(string propertyName)
         {
-            this.pi = typeof(TEntity).GetProperty(propertyName);
+            this.pi = typeof(TEntity).GetPropertyInfo(propertyName);
             this.Name = propertyName;
             this.PropertyType = pi.PropertyType;
 

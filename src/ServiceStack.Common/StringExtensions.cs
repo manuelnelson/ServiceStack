@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Reflection;
 using ServiceStack.Common.Utils;
 using ServiceStack.Text;
 using ServiceStack.Text.Common;
@@ -35,10 +36,29 @@ namespace ServiceStack.Common
             return RegexSplitCamelCase.Replace(value, " $1").TrimStart();
         }
 
+        public static string ToCamelCase(this string value)
+        {
+            return Text.StringExtensions.ToCamelCase(value);
+        }
+
+        public static string ToLowercaseUnderscore(this string value)
+        {
+            return Text.StringExtensions.ToLowercaseUnderscore(value);
+        }
+
+        public static string ToInvariantUpper(this char value)
+        {
+#if NETFX_CORE
+            return value.ToString().ToUpperInvariant();
+#else
+            return value.ToString(CultureInfo.InvariantCulture).ToUpper();
+#endif
+        }
+
         public static string ToEnglish(this string camelCase)
         {
             var ucWords = camelCase.SplitCamelCase().ToLower();
-            return ucWords[0].ToString(CultureInfo.InvariantCulture).ToUpper() + ucWords.Substring(1);
+            return ucWords[0].ToInvariantUpper() + ucWords.Substring(1);
         }
 
         public static bool IsEmpty(this string value)
@@ -79,7 +99,7 @@ namespace ServiceStack.Common
         }
 
         public static bool ContainsAny(this string text, params string[] testMatches)
-        {	
+        {
             foreach (var testMatch in testMatches)
             {
                 if (text.Contains(testMatch)) return true;
@@ -160,7 +180,7 @@ namespace ServiceStack.Common
 
         public static bool IsUserType(this Type type)
         {
-            return type.IsClass
+            return type.IsClass()
                 && type.Namespace != null
                 && !type.Namespace.StartsWith("System")
                 && type.Name.IndexOfAny(SystemTypeChars) == -1;
@@ -168,31 +188,61 @@ namespace ServiceStack.Common
 
         public static bool IsInt(this string text)
         {
-            if (string.IsNullOrEmpty(text)) return false;
+            if (String.IsNullOrEmpty(text)) return false;
             int ret;
-            return int.TryParse(text, out ret);
+            return Int32.TryParse(text, out ret);
         }
 
         public static int ToInt(this string text)
         {
-            return int.Parse(text);
+            return Int32.Parse(text);
         }
 
         public static int ToInt(this string text, int defaultValue)
         {
             int ret;
-            return int.TryParse(text, out ret) ? ret : defaultValue;
+            return Int32.TryParse(text, out ret) ? ret : defaultValue;
         }
 
         public static long ToInt64(this string text)
         {
-            return long.Parse(text);
+            return Int64.Parse(text);
         }
 
         public static long ToInt64(this string text, long defaultValue)
         {
             long ret;
-            return long.TryParse(text, out ret) ? ret : defaultValue;
+            return Int64.TryParse(text, out ret) ? ret : defaultValue;
+        }
+
+        public static bool Glob(this string value, string pattern)
+        {
+            int pos;
+            for (pos = 0; pattern.Length != pos; pos++)
+            {
+                switch (pattern[pos])
+                {
+                    case '?':
+                        break;
+
+                    case '*':
+                        for (int i = value.Length; i >= pos; i--)
+                        {
+                            if (Glob(value.Substring(i), pattern.Substring(pos + 1)))
+                                return true;
+                        }
+                        return false;
+
+                    default:
+                        if (value.Length == pos || Char.ToUpper(pattern[pos]) != Char.ToUpper(value[pos]))
+                        {
+                            return false;
+                        }
+                        break;
+                }
+            }
+
+            return value.Length == pos;
         }
     }
 

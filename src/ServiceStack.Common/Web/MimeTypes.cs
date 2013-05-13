@@ -58,6 +58,9 @@ namespace ServiceStack.Common.Web
                 case "tif":
                     return "image/tiff";
 
+                case "svg":
+                    return "image/svg+xml";
+
                 case "htm":
                 case "html":
                 case "shtml":
@@ -91,6 +94,9 @@ namespace ServiceStack.Common.Web
                     return "video/mpeg";
 
                 case "avi":
+                case "mp4":
+                case "ogg":
+                case "webm":
                     return "video/" + fileExt;
 
                 case "rtf":

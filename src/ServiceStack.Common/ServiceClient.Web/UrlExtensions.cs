@@ -1,14 +1,18 @@
-﻿using System;
+﻿using ServiceStack.Common.Web;
+using ServiceStack.Net30.Collections.Concurrent;
+using ServiceStack.ServiceHost;
+using ServiceStack.Text;
+using System;
+#if NETFX_CORE
+using System.Collections.Concurrent;
+#endif
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
-using ServiceStack.Common.Web;
-using ServiceStack.Net30.Collections.Concurrent;
-using ServiceStack.ServiceHost;
-using ServiceStack.Text;
 
 namespace ServiceStack.ServiceClient.Web
 {
@@ -23,7 +27,7 @@ namespace ServiceStack.ServiceClient.Web
         private static readonly ConcurrentDictionary<Type, List<RestRoute>> routesCache =
             new ConcurrentDictionary<Type, List<RestRoute>>();
 
-        public static string ToUrl(this IReturn request, string httpMethod, string formatFallbackToPredefinedRoute=null)
+        public static string ToUrl(this IReturn request, string httpMethod, string formatFallbackToPredefinedRoute = null)
         {
             httpMethod = httpMethod.ToUpper();
 
@@ -33,11 +37,11 @@ namespace ServiceStack.ServiceClient.Web
             {
                 if (formatFallbackToPredefinedRoute == null)
                     throw new InvalidOperationException("There are no rest routes mapped for '{0}' type. ".Fmt(requestType)
-                        + "(Note: The automatic route selection only works with [Route] attributes on the request DTO and" 
+                        + "(Note: The automatic route selection only works with [Route] attributes on the request DTO and"
                         + "not with routes registered in the IAppHost!)");
 
                 var predefinedRoute = "/{0}/syncreply/{1}".Fmt(formatFallbackToPredefinedRoute, requestType.Name);
-                if (httpMethod == "GET" || httpMethod == "DELETE" || httpMethod == "OPTIONS")
+                if (httpMethod == "GET" || httpMethod == "DELETE" || httpMethod == "OPTIONS" || httpMethod == "HEAD")
                 {
                     var queryProperties = RestRoute.GetQueryProperties(request.GetType());
                     predefinedRoute += "?" + RestRoute.GetQueryString(request, queryProperties);
@@ -72,9 +76,9 @@ namespace ServiceStack.ServiceClient.Web
             {
                 matchingRoute = matchingRoutes[0];
             }
-            
+
             var url = matchingRoute.Uri;
-            if (httpMethod == HttpMethods.Get || httpMethod == HttpMethods.Delete)
+            if (httpMethod == HttpMethods.Get || httpMethod == HttpMethods.Delete || httpMethod == HttpMethods.Head)
             {
                 var queryParams = matchingRoute.Route.FormatQueryParameters(request);
                 if (!String.IsNullOrEmpty(queryParams))
@@ -88,10 +92,21 @@ namespace ServiceStack.ServiceClient.Web
 
         private static List<RestRoute> GetRoutesForType(Type requestType)
         {
-            var restRoutes = requestType.GetCustomAttributes(false)
+
+#if NETFX_CORE
+            var restRoutes = requestType.AttributesOfType<RouteAttribute>()
+                .Select(attr => new RestRoute(requestType, attr.Path, attr.Verbs))
+                .ToList();
+#elif WINDOWS_PHONE || SILVERLIGHT
+            var restRoutes = requestType.AttributesOfType<RouteAttribute>()
+                .Select(attr => new RestRoute(requestType, attr.Path, attr.Verbs))
+                .ToList();
+#else
+            var restRoutes = TypeDescriptor.GetAttributes(requestType)
                 .OfType<RouteAttribute>()
                 .Select(attr => new RestRoute(requestType, attr.Path, attr.Verbs))
                 .ToList();
+#endif
 
             return restRoutes;
         }
@@ -100,7 +115,7 @@ namespace ServiceStack.ServiceClient.Web
         {
             RouteResolutionResult bestMatch = default(RouteResolutionResult);
             var otherMatches = new List<RouteResolutionResult>();
-            
+
             foreach (var route in routes)
             {
                 if (bestMatch == null)
@@ -141,7 +156,7 @@ namespace ServiceStack.ServiceClient.Web
 
     public class RestRoute
     {
-        private static readonly char[] ArrayBrackets = new[]{ '[' , ']' };
+        private static readonly char[] ArrayBrackets = new[] { '[', ']'};
 
         private static string FormatValue(object value)
         {
@@ -150,13 +165,15 @@ namespace ServiceStack.ServiceClient.Web
         }
 
         [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:FieldsMustBePrivate", Justification = "Using field is just easier.")]
-        public static Func<object, string> FormatVariable = value => {
+        public static Func<object, string> FormatVariable = value =>
+        {
             var valueString = value as string;
-            return valueString != null ? Uri.EscapeDataString(valueString) : FormatValue(value);
+            return valueString != null ? Uri.EscapeDataString(valueString) : FormatValue(value ?? "").Trim('"');
         };
 
         [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:FieldsMustBePrivate", Justification = "Using field is just easier.")]
-        public static Func<object, string> FormatQueryParameterValue = value => {
+        public static Func<object, string> FormatQueryParameterValue = value =>
+        {
             // Perhaps custom formatting needed for DateTimes, lists, etc.
             var valueString = value as string;
             return valueString != null ? Uri.EscapeDataString(valueString) : FormatValue(value);
@@ -168,10 +185,10 @@ namespace ServiceStack.ServiceClient.Web
         private const string VariablePostfix = "}";
         private const char VariablePostfixChar = '}';
 
-        private readonly IDictionary<string, PropertyInfo> queryProperties;
-        private readonly IDictionary<string, PropertyInfo> variablesMap = new Dictionary<string, PropertyInfo>(StringComparer.InvariantCultureIgnoreCase);
+        private readonly IDictionary<string, RouteMember> queryProperties;
+        private readonly IDictionary<string, RouteMember> variablesMap = new Dictionary<string, RouteMember>(StringExtensions.InvariantComparerIgnoreCase());
 
-        public RestRoute(Type type, string path, string verbs)
+	    public RestRoute(Type type, string path, string verbs)
         {
             this.HttpMethods = (verbs ?? string.Empty).Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             this.Type = type;
@@ -180,15 +197,17 @@ namespace ServiceStack.ServiceClient.Web
             this.queryProperties = GetQueryProperties(type);
             foreach (var variableName in GetUrlVariables(path))
             {
-                PropertyInfo propertyInfo;
-                if (!this.queryProperties.TryGetValue(variableName, out propertyInfo))
+                var safeVarName = variableName.TrimEnd('*');
+
+                RouteMember propertyInfo;
+                if (!this.queryProperties.TryGetValue(safeVarName, out propertyInfo))
                 {
-                    this.AppendError("Variable '{0}' does not match any property.".Fmt(variableName));
-                    continue;
+	                this.AppendError("Variable '{0}' does not match any property.".Fmt(variableName));
+	                continue;
                 }
 
+                this.queryProperties.Remove(safeVarName);
                 this.variablesMap[variableName] = propertyInfo;
-                this.queryProperties.Remove(variableName);
             }
         }
 
@@ -229,8 +248,9 @@ namespace ServiceStack.ServiceClient.Web
             foreach (var variable in this.variablesMap)
             {
                 var property = variable.Value;
-                var value = property.GetValue(request, null);
-                if (value == null)
+                var value = property.GetValue(request);
+                var isWildCard = variable.Key.EndsWith("*");
+                if (value == null && !isWildCard)
                 {
                     unmatchedVariables.Add(variable.Key);
                     continue;
@@ -254,13 +274,13 @@ namespace ServiceStack.ServiceClient.Web
             return GetQueryString(request, this.queryProperties);
         }
 
-        internal static string GetQueryString(object request, IDictionary<string, PropertyInfo> propertyMap)
+        internal static string GetQueryString(object request, IDictionary<string, RouteMember> propertyMap)
         {
             var result = new StringBuilder();
 
             foreach (var queryProperty in propertyMap)
             {
-                var value = queryProperty.Value.GetValue(request, null);
+                var value = queryProperty.Value.GetValue(request, true);
                 if (value == null)
                 {
                     continue;
@@ -276,12 +296,12 @@ namespace ServiceStack.ServiceClient.Web
             return result.ToString();
         }
 
-        internal static IDictionary<string, PropertyInfo> GetQueryProperties(Type requestType)
+        internal static IDictionary<string, RouteMember> GetQueryProperties(Type requestType)
         {
-            var result = new Dictionary<string, PropertyInfo>(StringComparer.InvariantCultureIgnoreCase);
+            var result = new Dictionary<string, RouteMember>(StringExtensions.InvariantComparerIgnoreCase()); 
             var hasDataContract = requestType.HasAttr<DataContractAttribute>();
 
-            foreach (var propertyInfo in requestType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            foreach (var propertyInfo in requestType.GetPublicProperties())
             {
                 var propertyName = propertyInfo.Name;
 
@@ -289,7 +309,8 @@ namespace ServiceStack.ServiceClient.Web
                 if (hasDataContract)
                 {
                     if (!propertyInfo.IsDefined(typeof(DataMemberAttribute), true)) continue;
-                    var dataMember = (DataMemberAttribute)propertyInfo.GetCustomAttributes(typeof(DataMemberAttribute), true)[0];
+
+                    var dataMember = propertyInfo.FirstAttribute<DataMemberAttribute>();
                     if (!string.IsNullOrEmpty(dataMember.Name))
                     {
                         propertyName = dataMember.Name;
@@ -300,8 +321,21 @@ namespace ServiceStack.ServiceClient.Web
                     if (propertyInfo.IsDefined(typeof(IgnoreDataMemberAttribute), true)) continue;
                 }
 
-                result[propertyName.ToCamelCase()] = propertyInfo;
+                result[propertyName.ToCamelCase()] = new PropertyRouteMember(propertyInfo);
             }
+
+			if (JsConfig.IncludePublicFields)
+			{
+                foreach (var fieldInfo in requestType.GetPublicFields())
+                {
+					var fieldName = fieldInfo.Name;
+
+					if (fieldInfo.IsDefined(typeof(IgnoreDataMemberAttribute), true)) continue;
+
+					result[fieldName.ToCamelCase()] = new FieldRouteMember(fieldInfo);
+				}
+
+			}
 
             return result;
         }
@@ -383,4 +417,6 @@ namespace ServiceStack.ServiceClient.Web
             return Route.Variables.All(v => other.Route.Variables.Contains(v));
         }
     }
+
+
 }

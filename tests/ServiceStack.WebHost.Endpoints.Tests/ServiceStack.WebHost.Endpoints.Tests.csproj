@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ServiceStack.WebHost.Endpoints.Tests</RootNamespace>
     <AssemblyName>ServiceStack.WebHost.Endpoints.Tests</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -31,6 +31,9 @@
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\src\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -50,7 +53,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'STATIC_ONLY NO_EXPRESSIONS|AnyCPU' ">
@@ -76,6 +79,10 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="protobuf-net, Version=2.0.0.621, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\src\packages\protobuf-net.2.0.0.621\lib\net35\protobuf-net.dll</HintPath>
+    </Reference>
     <Reference Include="ServiceStack.OrmLite">
       <HintPath>..\..\lib\ServiceStack.OrmLite.dll</HintPath>
     </Reference>
@@ -83,6 +90,7 @@
       <HintPath>..\..\lib\ServiceStack.OrmLite.Sqlite.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
@@ -115,23 +123,31 @@
     <Reference Include="ServiceStack.Text">
       <HintPath>..\..\lib\ServiceStack.Text.dll</HintPath>
     </Reference>
-    <Reference Include="protobuf-net">
-      <HintPath>..\..\lib\tests\protobuf-net.dll</HintPath>
-    </Reference>
     <Reference Include="System.Configuration" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppHostListenerEchoRequestTests.cs" />
     <Compile Include="AppHostHttpListenerLongRunningBaseTests.cs" />
     <Compile Include="AppHostListenerBaseTests.cs" />
     <Compile Include="AsyncRestClientTests.cs" />
     <Compile Include="AsyncServiceClientTests.cs" />
     <Compile Include="AttributeFiltersTest.cs" />
     <Compile Include="AuthTests.cs" />
+    <Compile Include="BufferedRequestTests.cs" />
     <Compile Include="CachedServiceTests.cs" />
     <Compile Include="CompressionTests.cs" />
+    <Compile Include="CustomValidationErrorTests.cs" />
+    <Compile Include="EncodingTests.cs" />
     <Compile Include="ExceptionHandling2Tests.cs" />
     <Compile Include="IntegrationTests\MovieSoap11Tests.cs" />
+    <Compile Include="RestHandlerTests.cs" />
+    <Compile Include="RouteInferenceTests.cs" />
+    <Compile Include="ServiceClientsBuiltInResponseTests.cs" />
+    <Compile Include="Support\Services\TestRestService.cs" />
+    <Compile Include="Support\Types\KeyAttribute.cs" />
+    <Compile Include="PartialContentResultTests.cs" />
     <Compile Include="ServiceSetupTests.cs" />
+    <Compile Include="Support\Services\FailingService.cs" />
     <Compile Include="UniqueRequestTests.cs" />
     <Compile Include="SendOneWayTests.cs" />
     <Compile Include="Support\Services\EndpointAccessService.cs" />
@@ -241,14 +257,21 @@
       <Project>{680A1709-25EB-4D52-A87F-EE03FFD94BAA}</Project>
       <Name>ServiceStack</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ServiceStack.Common.Tests\ServiceStack.Common.Tests.csproj">
+      <Project>{3FA9197A-462D-44CC-9AB3-61AF414D0B45}</Project>
+      <Name>ServiceStack.Common.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ServiceStack.ServiceModel.Tests\ServiceStack.ServiceModel.Tests.csproj">
       <Project>{A5646013-C243-453F-A2B6-3B6870A9637D}</Project>
       <Name>ServiceStack.ServiceModel.Tests</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\..\lib\tests\sqlite3.dll">
+    <Content Include="..\..\lib\sqlite3.dll">
       <Link>sqlite3.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestExistingDir\textfile.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="webpage.forbidden">
@@ -257,8 +280,12 @@
     <Content Include="webpage.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="TestExistingDir\default.html" />
-    <Content Include="TestExistingDir\upload.html" />
+    <Content Include="TestExistingDir\default.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestExistingDir\upload.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
@@ -281,9 +308,11 @@
     <Folder Include="ServiceModel\" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

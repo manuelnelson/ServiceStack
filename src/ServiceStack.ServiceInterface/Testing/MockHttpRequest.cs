@@ -50,6 +50,7 @@ namespace ServiceStack.ServiceInterface.Testing
         public string ContentType { get; set; }
         public string HttpMethod { get; set; }
         public string UserAgent { get; set; }
+        public bool IsLocal { get; set; }
 
         public IDictionary<string, Cookie> Cookies { get; set; }
 
@@ -65,6 +66,8 @@ namespace ServiceStack.ServiceInterface.Testing
         public NameValueCollection QueryString { get; set; }
 
         public NameValueCollection FormData { get; set; }
+
+        public bool UseBufferedStream { get; set; }
 
         public Dictionary<string, object> Items
         {
@@ -94,6 +97,8 @@ namespace ServiceStack.ServiceInterface.Testing
         public string UserHostAddress { get; set; }
 
         public string RemoteIp { get; set; }
+        public string XForwardedFor { get; set; }
+        public string XRealIp { get; set; }
 
         public bool IsSecureConnection { get; set; }
         public string[] AcceptTypes { get; set; }

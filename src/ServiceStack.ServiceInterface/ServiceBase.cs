@@ -19,7 +19,7 @@ namespace ServiceStack.ServiceInterface
     /// also be maintained into a service specific and combined rolling error log.
     /// </summary>
     /// <typeparam name="TRequest"></typeparam>
-    [Obsolete("Use ServiceStack.ServiceInterface.Service - ServiceStack's New API for future services")]
+    [Obsolete("Use the New API (ServiceStack.ServiceInterface.Service) for future services. See: https://github.com/ServiceStack/ServiceStack/wiki/New-Api")]
     public abstract class ServiceBase<TRequest>
         : IService<TRequest>, IRequiresRequestContext, IServiceBase, IAsyncService<TRequest>, IRestOptionsService<TRequest>
     {
@@ -42,23 +42,28 @@ namespace ServiceStack.ServiceInterface
         /// Access to the Applications ServiceStack AppHost Instance
         /// </summary>
         /// 
-        private IAppHost appHost; //not property to stop alt IOC's creating new instances of AppHost
-        
-        public IAppHost GetAppHost()
+        private IResolver resolver; //not property to stop alt IOC's creating new instances of AppHost
+        public IResolver GetResolver()
         {
-            return appHost ?? EndpointHost.AppHost;
+            return resolver ?? EndpointHost.AppHost;
         }
 
         private HandleServiceExceptionDelegate serviceExceptionHandler;
         public HandleServiceExceptionDelegate ServiceExceptionHandler
         {
-            get { return serviceExceptionHandler ?? (GetAppHost() != null ? GetAppHost().ServiceExceptionHandler : null); }
+            get { return serviceExceptionHandler ?? (GetResolver() is IAppHost ? ((IAppHost)GetResolver()).ServiceExceptionHandler : null); }
             set { serviceExceptionHandler = value; }
         }
 
-        public ServiceBase<TRequest> SetAppHost(IAppHost appHost) //Allow chaining
+        [Obsolete("Use SetResolver")]
+        public ServiceBase<TRequest> SetAppHost(IAppHost appHost)
         {
-            this.appHost = appHost;
+            return SetResolver(appHost);
+        }
+
+        public ServiceBase<TRequest> SetResolver(IResolver appHost) //Allow chaining
+        {
+            this.resolver = appHost;
             return this;
         }
 
@@ -159,7 +164,7 @@ namespace ServiceStack.ServiceInterface
         /// <returns></returns>
         public T ResolveService<T>()
         {
-            var service = this.GetAppHost().TryResolve<T>();
+            var service = this.GetResolver().TryResolve<T>();
             var requiresContext = service as IRequiresRequestContext;
             if (requiresContext != null)
             {
@@ -180,9 +185,9 @@ namespace ServiceStack.ServiceInterface
         /// <returns></returns>
         public T TryResolve<T>()
         {
-            return this.GetAppHost() == null
+            return this.GetResolver() == null
                 ? default(T)
-                : this.GetAppHost().TryResolve<T>();
+                : this.GetResolver().TryResolve<T>();
         }
 
         /// <summary>
@@ -248,7 +253,7 @@ namespace ServiceStack.ServiceInterface
         {
             var errorResponse = ServiceExceptionHandler != null
                 ? ServiceExceptionHandler(request, ex)
-                : DtoUtils.HandleException(GetAppHost(), request, ex);
+                : DtoUtils.HandleException(GetResolver(), request, ex);
 
             AfterEachRequest(request, errorResponse ?? ex);
             

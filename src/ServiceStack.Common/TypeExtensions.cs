@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using ServiceStack.Text;
 
 namespace ServiceStack.Common
 {
@@ -15,7 +15,7 @@ namespace ServiceStack.Common
                 List<string> propertyNames;
                 if (!TypePropertyNamesMap.TryGetValue(type, out propertyNames))
                 {
-                    propertyNames = Extensions.EnumerableExtensions.ConvertAll(type.GetProperties(), x => x.Name);
+                    propertyNames = Extensions.EnumerableExtensions.ConvertAll(type.Properties(), x => x.Name);
                     TypePropertyNamesMap[type] = propertyNames;
                 }
                 return propertyNames;
@@ -24,7 +24,7 @@ namespace ServiceStack.Common
 
         public static List<T> ToAttributes<T>(this Type type) where T : Attribute
         {
-            return type.GetCustomAttributes(typeof(T), true).SafeConvertAll(x => (T)x);
+            return type.CustomAttributes(typeof(T)).SafeConvertAll(x => (T)x);
         }
 
 #if !SILVERLIGHT

@@ -7,6 +7,7 @@ using ServiceStack.Logging;
 using ServiceStack.Text;
 using ServiceStack.Text.Common;
 using ServiceStack.Text.Jsv;
+using System.Linq;
 
 namespace ServiceStack.ServiceModel.Serialization
 {
@@ -15,7 +16,7 @@ namespace ServiceStack.ServiceModel.Serialization
     /// </summary>
     public class StringMapTypeDeserializer
     {
-        private static readonly ILog Log = LogManager.GetLogger(typeof(StringMapTypeDeserializer));
+        private static ILog Log = LogManager.GetLogger(typeof(StringMapTypeDeserializer));
 
         internal class PropertySerializerEntry
         {
@@ -32,7 +33,12 @@ namespace ServiceStack.ServiceModel.Serialization
 
         private readonly Type type;
         private readonly Dictionary<string, PropertySerializerEntry> propertySetterMap
-            = new Dictionary<string, PropertySerializerEntry>(StringComparer.InvariantCultureIgnoreCase);
+            = new Dictionary<string, PropertySerializerEntry>(Text.StringExtensions.InvariantComparerIgnoreCase());
+
+        internal StringMapTypeDeserializer(Type type, ILog log) : this(type)
+        {
+            Log = log;
+        }
 
         public StringMapTypeDeserializer(Type type)
         {
@@ -52,9 +58,23 @@ namespace ServiceStack.ServiceModel.Serialization
                 }
                 propertySetterMap[propertyInfo.Name] = propertySerializer;
             }
+
+	        if (JsConfig.IncludePublicFields)
+	        {
+		        foreach (var fieldInfo in type.GetSerializableFields())
+		        {
+			        var fieldSetFn = JsvDeserializeType.GetSetFieldMethod(type, fieldInfo);
+			        var fieldType = fieldInfo.FieldType;
+			        var fieldParseStringFn = JsvReader.GetParseFn(fieldType);
+			        var fieldSerializer = new PropertySerializerEntry(fieldSetFn, fieldParseStringFn) {PropertyType = fieldType};
+
+			        propertySetterMap[fieldInfo.Name] = fieldSerializer;
+		        }
+	        }
+
         }
 
-        public object PopulateFromMap(object instance, IDictionary<string, string> keyValuePairs)
+        public object PopulateFromMap(object instance, IDictionary<string, string> keyValuePairs, List<string> ignoredWarningsOnPropertyNames = null)
         {
             string propertyName = null;
             string propertyTextValue = null;
@@ -64,16 +84,17 @@ namespace ServiceStack.ServiceModel.Serialization
             {
                 if (instance == null) instance = type.CreateInstance();
 
-                foreach (var pair in keyValuePairs)
+                foreach (var pair in keyValuePairs.Where(x => !string.IsNullOrEmpty(x.Value)))
                 {
                     propertyName = pair.Key;
                     propertyTextValue = pair.Value;
 
                     if (!propertySetterMap.TryGetValue(propertyName, out propertySerializerEntry))
                     {
-                        if (propertyName != "format" && propertyName != "callback" && propertyName != "debug")
+                        var ignoredProperty = propertyName.ToLowerInvariant();
+                        if (ignoredWarningsOnPropertyNames == null || !ignoredWarningsOnPropertyNames.Contains(ignoredProperty))
                         {
-                            Log.WarnFormat("Property '{0}' does not exist on type '{1}'", propertyName, type.FullName);
+                            Log.WarnFormat("Property '{0}' does not exist on type '{1}'", ignoredProperty, type.FullName);
                         }
                         continue;
                     }
@@ -114,7 +135,7 @@ namespace ServiceStack.ServiceModel.Serialization
 
         public object CreateFromMap(IDictionary<string, string> keyValuePairs)
         {
-            return PopulateFromMap(null, keyValuePairs);
+            return PopulateFromMap(null, keyValuePairs, null);
         }
     }
 }

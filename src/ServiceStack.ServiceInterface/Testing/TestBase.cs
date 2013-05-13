@@ -236,11 +236,20 @@ namespace ServiceStack.ServiceInterface.Testing
                 throw new NotImplementedException();
             }
 
-            public TResponse PostFile<TResponse>(string relativeOrAbsoluteUrl, Stream fileToUpload, string fileName, string mimeType)
+            public HttpWebResponse Head(IReturn request)
             {
                 throw new NotImplementedException();
             }
 
+            public HttpWebResponse Head(string relativeOrAbsoluteUrl)
+            {
+                throw new NotImplementedException();
+            }
+
+            public TResponse PostFile<TResponse>(string relativeOrAbsoluteUrl, Stream fileToUpload, string fileName, string mimeType)
+            {
+                throw new NotImplementedException();
+            }
 
             public void SendAsync<TResponse>(object request,
                 Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
@@ -277,6 +286,11 @@ namespace ServiceStack.ServiceInterface.Testing
                 throw new NotImplementedException();
             }
 
+            public void GetAsync<TResponse>(IReturn<TResponse> request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
+            {
+                throw new NotImplementedException();
+            }
+
             public void GetAsync<TResponse>(string relativeOrAbsoluteUrl, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
             {
                 try
@@ -303,6 +317,16 @@ namespace ServiceStack.ServiceInterface.Testing
                 }
             }
 
+            public void DeleteAsync<TResponse>(IReturn<TResponse> request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void PostAsync<TResponse>(IReturn<TResponse> request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
+            {
+                throw new NotImplementedException();
+            }
+
             public void PostAsync<TResponse>(string relativeOrAbsoluteUrl, object request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
             {
                 try
@@ -316,6 +340,11 @@ namespace ServiceStack.ServiceInterface.Testing
                 }
             }
 
+            public void PutAsync<TResponse>(IReturn<TResponse> request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
+            {
+                throw new NotImplementedException();
+            }
+
             public void PutAsync<TResponse>(string relativeOrAbsoluteUrl, object request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
             {
                 try
@@ -327,6 +356,16 @@ namespace ServiceStack.ServiceInterface.Testing
                 {
                     HandleException(ex, onError);
                 }
+            }
+
+            public void CustomMethodAsync<TResponse>(string httpVerb, IReturn<TResponse> request, Action<TResponse> onSuccess, Action<TResponse, Exception> onError)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void CancelAsync()
+            {
+                throw new NotImplementedException();
             }
 
             public void Dispose() { }
@@ -452,6 +491,11 @@ namespace ServiceStack.ServiceInterface.Testing
             }
 
             return response;
+        }
+
+        public T GetRequest<T>(string pathInfo)
+        {
+            return (T) GetRequest(pathInfo);
         }
 
         public object GetRequest(string pathInfo)

@@ -47,6 +47,11 @@ namespace ServiceStack.ServiceHost
             get { return "MQ"; }
         }
 
+        public bool IsLocal
+        {
+            get { return true; }
+        }
+
         public IDictionary<string, Cookie> Cookies
         {
             get { return requestContext.Cookies; }
@@ -80,10 +85,12 @@ namespace ServiceStack.ServiceHost
             get { return new NameValueCollection(); }
         }
 
+        public bool UseBufferedStream { get; set; }
+
         private string body;
         public string GetRawBody()
         {
-            return body ?? (body = requestContext.Message.Body.Dump());
+            return body ?? (body = (requestContext.Message.Body ?? "").Dump());
         }
 
         public string RawUrl
@@ -105,6 +112,17 @@ namespace ServiceStack.ServiceHost
         {
             get { return null; }
         }
+
+        public string XForwardedFor
+        {
+            get { return null; }
+        }
+
+        public string XRealIp 
+        {
+            get { return null; }
+        }
+
 
         public bool IsSecureConnection
         {
@@ -128,7 +146,7 @@ namespace ServiceStack.ServiceHost
 
         public long ContentLength
         {
-            get { return GetRawBody().Length; }
+            get { return (GetRawBody() ?? "").Length; }
         }
 
         public IFile[] Files

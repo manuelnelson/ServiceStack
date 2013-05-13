@@ -6,9 +6,10 @@ SET BUILD=Release
 REM %MSBUILD% build.msbuild
 
 MD ..\NuGet\ServiceStack\lib\net35
-REM MD ..\NuGet\ServiceStack\lib\net40
+MD ..\NuGet\ServiceStack.Api.Swagger\lib\net35
 MD ..\NuGet\ServiceStack.Common\lib\net35
 MD ..\NuGet\ServiceStack.Mvc\lib\net40
+MD ..\NuGet\ServiceStack.Razor\lib\net40
 MD ..\NuGet\ServiceStack.Authentication.OpenId\lib\net35
 MD ..\NuGet\ServiceStack.Plugins.ProtoBuf\lib\net35
 MD ..\NuGet\ServiceStack.Plugins.MsgPack\lib\net40
@@ -38,6 +39,11 @@ COPY ..\src\ServiceStack.Plugins.ProtoBuf\bin\%BUILD%\ServiceStack.Plugins.Proto
 COPY ..\lib\MsgPack.dll ..\NuGet\ServiceStack.Plugins.MsgPack\lib\net40
 COPY ..\src\ServiceStack.Plugins.MsgPack\bin\%BUILD%\ServiceStack.Plugins.MsgPack.* ..\NuGet\ServiceStack.Plugins.MsgPack\lib\net40
 
+RMDIR ..\NuGet\ServiceStack.Api.Swagger\content\swagger-ui /s /q
+MD ..\NuGet\ServiceStack.Api.Swagger\content\swagger-ui
+COPY ..\src\ServiceStack.Api.Swagger\bin\%BUILD%\ServiceStack.Api.Swagger.* ..\NuGet\ServiceStack.Api.Swagger\lib\net35
+XCOPY /E ..\src\ServiceStack.Api.Swagger\swagger-ui ..\NuGet\ServiceStack.Api.Swagger\content\swagger-ui
+
 
 COPY ..\src\ServiceStack.ServiceInterface\bin\%BUILD%\*.* ..\..\chaweet\api\lib
 
@@ -58,6 +64,7 @@ COPY ..\src\ServiceStack\bin\%BUILD%\ServiceStack.Text.dll ..\..\ServiceStack.Or
 COPY ..\src\ServiceStack\bin\%BUILD%\ServiceStack.Text.pdb ..\..\ServiceStack.OrmLite\lib
 COPY ..\src\ServiceStack\bin\%BUILD%\ServiceStack.Common.dll ..\..\ServiceStack.OrmLite\lib
 COPY ..\src\ServiceStack\bin\%BUILD%\ServiceStack.Common.pdb ..\..\ServiceStack.OrmLite\lib
+COPY ..\tests\ServiceStack.Common.Tests\bin\%BUILD%\ServiceStack.Common.Tests.* ..\..\ServiceStack.OrmLite\lib\tests
 
 COPY ..\..\ServiceStack.OrmLite\NuGet\ServiceStack.OrmLite.SqlServer\lib\*.* ..\release\latest\ServiceStack
 COPY ..\..\ServiceStack.Redis\NuGet\lib\net35\*.* ..\release\latest\ServiceStack
@@ -69,3 +76,5 @@ COPY ..\src\ServiceStack.ServiceInterface\bin\%BUILD%\*.* ..\..\SocialApiBootstr
 COPY ..\src\ServiceStack.FluentValidation.Mvc3\bin\%BUILD%\ServiceStack.FluentValidation.Mvc3.* ..\..\SocialApiBootstrap\lib
 COPY ..\..\ServiceStack.OrmLite\NuGet\ServiceStack.OrmLite.SqlServer\lib\*.* ..\..\SocialApiBootstrap\lib
 COPY ..\..\ServiceStack.Redis\NuGet\lib\net35\*.* ..\..\SocialApiBootstrap\lib
+
+

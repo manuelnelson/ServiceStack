@@ -23,6 +23,11 @@ namespace ServiceStack.ServiceHost.Tests
 			get { throw new NotImplementedException(); }
 		}
 
+        public bool IsLocal
+        {
+            get { return true; }
+        }
+
 		public string HttpMethod
 		{
 			get { throw new NotImplementedException(); }
@@ -70,7 +75,9 @@ namespace ServiceStack.ServiceHost.Tests
 			get { throw new NotImplementedException(); }
 		}
 
-		public string GetRawBody()
+	    public bool UseBufferedStream { get; set; }
+
+	    public string GetRawBody()
 		{
 			throw new NotImplementedException();
 		}
@@ -94,6 +101,16 @@ namespace ServiceStack.ServiceHost.Tests
 		{
 			get { throw new NotImplementedException(); }
 		}
+
+        public string XForwardedFor
+        {
+            get { throw new NotImplementedException(); }
+        }
+        
+        public string XRealIp
+        {
+            get { throw new NotImplementedException(); }
+        }
 
 		public bool IsSecureConnection
 		{

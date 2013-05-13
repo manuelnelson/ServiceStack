@@ -37,6 +37,7 @@ App_Data/
 build/*.dll
 *.user
 *.userprefs
+packages/
 
 release/latest/
 *.nupkg
@@ -48,3 +49,9 @@ build/
 *.DS_Store
 
 *.dotCover
+
+src/ServiceStack/Properties/Resources.resources
+
+src/ServiceStack.userprefs
+
+src/ServiceStack.userprefs

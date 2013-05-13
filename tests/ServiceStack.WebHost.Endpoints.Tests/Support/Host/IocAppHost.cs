@@ -30,6 +30,10 @@ namespace ServiceStack.WebHost.Endpoints.Tests.Support.Host
             container.Register(c => new FunqNoneScope()).ReusedWithin(ReuseScope.None);
             container.Register(c => new FunqRequestScopeDepDisposableProperty()).ReusedWithin(ReuseScope.Request);
 
+            container.Register(c => new FunqSingletonScopeDisposable()).ReusedWithin(ReuseScope.Default);
+            container.Register(c => new FunqRequestScopeDisposable()).ReusedWithin(ReuseScope.Request);
+            container.Register(c => new FunqNoneScopeDisposable()).ReusedWithin(ReuseScope.None);
+
             Routes.Add<Ioc>("/ioc");
             Routes.Add<IocScope>("/iocscope");
 		}
@@ -85,7 +89,7 @@ namespace ServiceStack.WebHost.Endpoints.Tests.Support.Host
         public int Priority { get; set; }
 
         public void RequestFilter(IHttpRequest req, IHttpResponse res, object requestDto)
-        {            
+        {
         }
 
         public IHasRequestFilter Copy()

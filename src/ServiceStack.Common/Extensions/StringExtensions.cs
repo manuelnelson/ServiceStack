@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using Proxy = ServiceStack.Common.StringExtensions;
 
 namespace ServiceStack.Common.Extensions
 {
+    [Obsolete("Use ServiceStack.Common.StringExtensions")]
     public static class StringExtensions
     {
         public static T ToEnum<T>(this string value)
@@ -70,35 +72,9 @@ namespace ServiceStack.Common.Extensions
             return Proxy.Join(items, delimeter);
         }
 
-        public static bool Glob(this string value, string pattern)
+        public static string ToHttps(this string value)
         {
-            int pos;
-            for (pos = 0; pattern.Length != pos; pos++)
-            {
-                switch (pattern[pos])
-                {
-                    case '?':
-                        break;
-
-                    case '*':
-                        for (int i = value.Length; i >= pos; i--)
-                        {
-                            if (Glob(value.Substring(i), pattern.Substring(pos + 1)))
-                                return true;
-                        }
-                        return false;
-
-                    default:
-                        if (value.Length == pos || char.ToUpper(pattern[pos]) != char.ToUpper(value[pos]))
-                        {
-                            return false;
-                        }
-                        break;
-                }
-            }
-
-            return value.Length == pos;
+            return value.Replace("http", "https");
         }
-
     }
 }

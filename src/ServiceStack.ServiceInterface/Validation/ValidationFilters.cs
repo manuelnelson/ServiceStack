@@ -1,12 +1,14 @@
-﻿using ServiceStack.ServiceHost;
+﻿using System.Linq;
+using ServiceStack.ServiceHost;
 using ServiceStack.FluentValidation;
+using ServiceStack.WebHost.Endpoints;
 using ServiceStack.WebHost.Endpoints.Extensions;
 
 namespace ServiceStack.ServiceInterface.Validation
 {
-    public class ValidationFilters
+    public static class ValidationFilters
     {
-        public void RequestFilter(IHttpRequest req, IHttpResponse res, object requestDto)
+        public static void RequestFilter(IHttpRequest req, IHttpResponse res, object requestDto)
         {
             var validator = ValidatorCache.GetValidator(req, requestDto.GetType());
             if (validator == null) return;
@@ -17,12 +19,18 @@ namespace ServiceStack.ServiceInterface.Validation
 
             var ruleSet = req.HttpMethod;
             var validationResult = validator.Validate(
-            new ValidationContext(requestDto, null, new MultiRuleSetValidatorSelector(ruleSet)));
+                new ValidationContext(requestDto, null, new MultiRuleSetValidatorSelector(ruleSet)));
 
             if (validationResult.IsValid) return;
 
             var errorResponse = DtoUtils.CreateErrorResponse(
                 requestDto, validationResult.ToErrorResult());
+
+            var validationFeature = EndpointHost.GetPlugin<ValidationFeature>();
+            if (validationFeature != null && validationFeature.ErrorResponseFilter != null)
+            {
+                errorResponse = validationFeature.ErrorResponseFilter(validationResult, errorResponse);
+            }
 
             res.WriteToResponse(req, errorResponse);
         }

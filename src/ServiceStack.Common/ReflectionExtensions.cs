@@ -23,6 +23,11 @@ namespace ServiceStack.Common
             return ReflectionUtils.PopulateFromPropertiesWithAttribute(to, from, typeof(TAttr));
         }
 
+        public static To PopulateFromPropertiesWithAttribute<To, From>(this To to, From from, Type attrType)
+        {
+            return ReflectionUtils.PopulateFromPropertiesWithAttribute(to, from, attrType);
+        }
+
         public static T TranslateTo<T>(this object from)
             where T : new()
         {
@@ -30,75 +35,13 @@ namespace ServiceStack.Common
             return to.PopulateWith(from);
         }
 
-        public static TAttribute FirstAttribute<TAttribute>(this Type type)
-        {
-            return type.FirstAttribute<TAttribute>(true);
-        }
-
-        public static TAttribute FirstAttribute<TAttribute>(this Type type, bool inherit)
-        {
-            var attrs = type.GetCustomAttributes(typeof(TAttribute), inherit);
-            return (TAttribute)(attrs.Length > 0 ? attrs[0] : null);
-        }
-
-        public static TAttribute FirstAttribute<TAttribute>(this PropertyInfo propertyInfo)
-        {
-            return propertyInfo.FirstAttribute<TAttribute>(true);
-        }
-
-        public static TAttribute FirstAttribute<TAttribute>(this PropertyInfo propertyInfo, bool inherit)
-        {
-            var attrs = propertyInfo.GetCustomAttributes(typeof(TAttribute), inherit);
-            return (TAttribute)(attrs.Length > 0 ? attrs[0] : null);
-        }
-
-        public static bool IsGenericType(this Type type)
-        {
-            while (type != null)
-            {
-                if (type.IsGenericType)
-                    return true;
-
-                type = type.BaseType;
-            }
-            return false;
-        }
-
-        public static Type FirstGenericTypeDefinition(this Type type)
-        {
-            while (type != null)
-            {
-                if (type.IsGenericType)
-                    return type.GetGenericTypeDefinition();
-
-                type = type.BaseType;
-            }
-
-            return null;
-        }
-
-        public static bool IsDynamic(this Assembly assembly)
-        {
-#if MONOTOUCH || WINDOWS_PHONE
-            return false;
-#else
-            try
-            {
-                var isDyanmic = assembly is System.Reflection.Emit.AssemblyBuilder
-                    || string.IsNullOrEmpty(assembly.Location);
-                return isDyanmic;
-            }
-            catch (NotSupportedException)
-            {
-                //Ignore assembly.Location not supported in a dynamic assembly.
-                return true;
-            }
-#endif
-        }
-
         public static bool IsDebugBuild(this Assembly assembly)
         {
-#if WINDOWS_PHONE
+#if NETFX_CORE
+            return assembly.GetCustomAttributes()
+                .OfType<DebuggableAttribute>()
+                .Any();
+#elif WINDOWS_PHONE || SILVERLIGHT
             return assembly.GetCustomAttributes(false)
                 .OfType<DebuggableAttribute>()
                 .Any();

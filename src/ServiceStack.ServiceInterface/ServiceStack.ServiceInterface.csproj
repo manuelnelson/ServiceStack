@@ -101,6 +101,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\GlobalAssemblyInfo.cs">
+      <Link>Properties\GlobalAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="AddHeaderAttribute.cs" />
     <Compile Include="Admin\RequestLogsFeature.cs" />
     <Compile Include="ApplyTo.cs" />
@@ -124,6 +127,7 @@
     <Compile Include="Auth\OAuthProvider.cs" />
     <Compile Include="Auth\TwitterAuthProvider.cs" />
     <Compile Include="Auth\UnAssignRolesService.cs" />
+    <Compile Include="Cors\EnableCors.cs" />
     <Compile Include="Cors\EnableCorsAttribute.cs" />
     <Compile Include="Cors\CorsFeature.cs" />
     <Compile Include="Cors\CorsSupportAttribute.cs" />
@@ -223,6 +227,7 @@
     <Compile Include="SessionExtensions.cs" />
     <Compile Include="SessionFeature.cs" />
     <Compile Include="SetStatusAttribute.cs" />
+    <Compile Include="SuppressFormsAuthenticationRedirectModule.cs" />
     <Compile Include="Testing\BasicAppHost.cs" />
     <Compile Include="Testing\BasicResolver.cs" />
     <Compile Include="Testing\MockHttpRequest.cs">

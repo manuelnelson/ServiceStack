@@ -431,7 +431,8 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 
 	    public static EndpointAttributes GetAttributes(this IHttpRequest request)
 	    {
-	        if (EndpointHost.DebugMode)
+            if (EndpointHost.DebugMode 
+                && request.QueryString != null) //Mock<IHttpRequest>
 	        {
                 var simulate = request.QueryString["simulate"];
                 if (simulate != null)
@@ -449,12 +450,25 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
 	        {
 	            var isIpv4Address = request.UserHostAddress.IndexOf('.') != -1 
                     && request.UserHostAddress.IndexOf("::", StringComparison.InvariantCulture) == -1;
-	            var pieces = request.UserHostAddress.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-	            var ipAddressNumber = isIpv4Address
-                    ? pieces[0]
-                    : (request.UserHostAddress.Contains("]:")
-                        ? request.UserHostAddress.Substring(0, request.UserHostAddress.LastIndexOf(':'))
-                        : request.UserHostAddress);
+
+                string ipAddressNumber = null;
+                if (isIpv4Address)
+                {
+                    ipAddressNumber = request.UserHostAddress.SplitOnFirst(":")[0];
+                }
+                else
+                {
+                    if (request.UserHostAddress.Contains("]:"))
+                    {
+                        ipAddressNumber = request.UserHostAddress.SplitOnLast(":")[0];
+                    }
+                    else
+                    {
+                        ipAddressNumber = request.UserHostAddress.LastIndexOf("%", StringComparison.InvariantCulture) > 0 ?
+                            request.UserHostAddress.SplitOnLast(":")[0] :
+                            request.UserHostAddress;
+                    }
+                }
 
 	            try
 	            {
@@ -557,7 +571,6 @@ namespace ServiceStack.WebHost.Endpoints.Extensions
                 }
             }
         }
-
 	}
     
 }

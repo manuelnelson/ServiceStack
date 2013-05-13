@@ -36,11 +36,32 @@ namespace ServiceStack.Mvc
         public static string DefaultAction = "Index";
         public static Func<RequestContext, ServiceStackController> CatchAllController;
 
+        /// <summary>
+        /// Default redirct URL if [Authenticate] attribute doesn't permit access.
+        /// </summary>
         public virtual string LoginRedirectUrl
         {
             get { return "/login?redirect={0}"; }
         }
 
+        /// <summary>
+        /// To change the error result when authentication (<see cref="AuthenticateAttribute"/>) 
+        /// fails from redirection to something else, 
+        /// override this property and return the appropriate result.
+        /// </summary>
+        public virtual ActionResult AuthenticationErrorResult
+        {
+            get
+            {
+                var returnUrl = HttpContext.Request.Url.PathAndQuery;
+                return new RedirectResult(LoginRedirectUrl.Fmt(HttpUtility.UrlEncode(returnUrl)));
+            }
+        }
+
+        /// <summary>
+        /// To change the error result when authorization fails
+        /// to something else, override this property and return the appropriate result.
+        /// </summary>
         public virtual ActionResult AuthorizationErrorResult
         {
             get
@@ -54,7 +75,13 @@ namespace ServiceStack.Mvc
         }
 
         public ICacheClient Cache { get; set; }
-        public ISessionFactory SessionFactory { get; set; }
+
+        private ISessionFactory sessionFactory;
+        public ISessionFactory SessionFactory
+        {
+            get { return sessionFactory ?? new SessionFactory(Cache); }
+            set { sessionFactory = value; }
+        }
 
         /// <summary>
         /// Typed UserSession

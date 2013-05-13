@@ -33,7 +33,7 @@ namespace ServiceStack.Common.Utils
         /// eg. in a unit test scenario  the assembly would be in /bin/Debug/.</remarks>
         public static string MapProjectPath(this string relativePath)
         {
-            var mapPath = MapAbsolutePath(relativePath, string.Format("{0}..{0}..", Path.DirectorySeparatorChar));
+            var mapPath = MapAbsolutePath(relativePath, string.Format("{0}..{0}..", Text.StringExtensions.DirSeparatorChar));
             return mapPath;
         }
 
@@ -57,7 +57,7 @@ namespace ServiceStack.Common.Utils
         /// <remarks>Assumes static content is in the parent folder of the /bin/ directory</remarks>
         public static string MapHostAbsolutePath(this string relativePath)
         {
-            var mapPath = MapAbsolutePath(relativePath, string.Format("{0}..", Path.DirectorySeparatorChar));
+            var mapPath = MapAbsolutePath(relativePath, string.Format("{0}..", Text.StringExtensions.DirSeparatorChar));
             return mapPath;
         }
 
@@ -65,10 +65,13 @@ namespace ServiceStack.Common.Utils
         {
             foreach (var path in paths)
             {
+                if (string.IsNullOrEmpty(path))
+                    continue;
+                
                 if (sb.Length > 0)
                     sb.Append("/");
 
-                sb.Append(path.TrimStart('/', '\\'));
+                sb.Append(path.Trim('/', '\\'));
             }
 
             return sb.ToString();
@@ -77,6 +80,13 @@ namespace ServiceStack.Common.Utils
         public static string CombinePaths(params string[] paths)
         {
             return CombinePaths(new StringBuilder(), paths);
+        }
+
+        public static string AssertDir(this string dirPath)
+        {
+            if (!Directory.Exists(dirPath))
+                Directory.CreateDirectory(dirPath);
+            return dirPath;
         }
     }
 

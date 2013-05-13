@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -52,13 +53,13 @@ namespace RazorRockstars.Console.Files
         {
             Thread.Sleep(TimeSpan.FromMinutes(10));
         }
-        
+
         [Test]
         public void Does_not_use_same_razor_page_instance()
         {
             var html = GetRazorInstanceHtml();
             Assert.That(html, Is.StringContaining("<h5>Counter: 1</h5>"));
-            
+
             html = GetRazorInstanceHtml();
             Assert.That(html, Is.StringContaining("<h5>Counter: 1</h5>"));
         }
@@ -66,19 +67,20 @@ namespace RazorRockstars.Console.Files
         private static string GetRazorInstanceHtml()
         {
             var razorFormat = RazorFormat.Instance;
-            var mockReq = new MockHttpRequest {OperationName = "RazorInstance"};
+            var mockReq = new MockHttpRequest { OperationName = "RazorInstance" };
             var mockRes = new MockHttpResponse();
-            var dto = new RockstarsResponse {Results = Rockstar.SeedData.ToList()};
+            var dto = new RockstarsResponse { Results = Rockstar.SeedData.ToList() };
             razorFormat.ProcessRequest(mockReq, mockRes, dto);
             var html = mockRes.ReadAsString();
             return html;
         }
-        
+
         public static string AcceptContentType = "*/*";
         public void Assert200(string url, params string[] containsItems)
         {
             url.Print();
-            var text = url.GetStringFromUrl(AcceptContentType, r => {
+            var text = url.GetStringFromUrl(AcceptContentType, responseFilter: r =>
+            {
                 if (r.StatusCode != HttpStatusCode.OK)
                     Assert.Fail(url + " did not return 200 OK");
             });
@@ -94,12 +96,48 @@ namespace RazorRockstars.Console.Files
         public void Assert200UrlContentType(string url, string contentType)
         {
             url.Print();
-            url.GetStringFromUrl(AcceptContentType, r => {
+            url.GetStringFromUrl(AcceptContentType, responseFilter: r =>
+            {
                 if (r.StatusCode != HttpStatusCode.OK)
                     Assert.Fail(url + " did not return 200 OK: " + r.StatusCode);
                 if (!r.ContentType.StartsWith(contentType))
                     Assert.Fail(url + " did not return contentType " + contentType);
             });
+        }
+
+        public void AssertStatus(string url, HttpStatusCode statusCode, params string[] containsItems)
+        {
+            url.Print();
+            try
+            {
+                var text = url.GetStringFromUrl(AcceptContentType, responseFilter: r =>
+                {
+                    if (r.StatusCode != statusCode)
+                        Assert.Fail("'{0}' returned {1} expected {2}".Fmt(url, r.StatusCode, statusCode));
+                });
+            }
+            catch (WebException webEx)
+            {
+                if (webEx != null && webEx.Status == WebExceptionStatus.ProtocolError)
+                {
+                    var errorResponse = ((HttpWebResponse)webEx.Response);
+                    if (errorResponse.StatusCode != statusCode)
+                        Assert.Fail("'{0}' returned {1} expected {2}".Fmt(url, errorResponse.StatusCode, statusCode));
+                    var errorBody = webEx.GetResponseBody();
+                    errorBody.Print();
+
+                    foreach (var item in containsItems)
+                    {
+                        if (!errorBody.Contains(item))
+                        {
+                            Assert.Fail(item + " was not found in " + url);
+                        }
+                    }
+                    return;
+                }
+
+                throw;
+            }
         }
 
         static string ViewRockstars = "<!--view:Rockstars.cshtml-->";
@@ -108,6 +146,9 @@ namespace RazorRockstars.Console.Files
         static string ViewRockstarsMark = "<!--view:RockstarsMark.md-->";
         static string ViewNoModelNoController = "<!--view:NoModelNoController.cshtml-->";
         static string ViewTypedModelNoController = "<!--view:TypedModelNoController.cshtml-->";
+        static string ViewCachedAllReqstars = "<!--view:CachedAllReqstars.cshtml-->";
+        static string ViewIList = "<!--view:IList.cshtml-->";
+        static string ViewList = "<!--view:List.cshtml-->";
         static string ViewPage1 = "<!--view:Page1.cshtml-->";
         static string ViewPage2 = "<!--view:Page2.cshtml-->";
         static string ViewPage3 = "<!--view:Page3.cshtml-->";
@@ -120,6 +161,7 @@ namespace RazorRockstars.Console.Files
         static string ViewRazorPartial = "<!--view:RazorPartial.cshtml-->";
         static string ViewMarkdownPartial = "<!--view:MarkdownPartial.md-->";
         static string ViewRazorPartialModel = "<!--view:RazorPartialModel.cshtml-->";
+        static string ViewPartialChildModel = "<!--view:PartialChildModel.cshtml-->";
 
         static string View_Default = "<!--view:default.cshtml-->";
         static string View_Pages_Default = "<!--view:Pages/default.cshtml-->";
@@ -132,6 +174,7 @@ namespace RazorRockstars.Console.Files
         static string Template_SimpleLayout = "<!--template:SimpleLayout.cshtml-->";
         static string Template_SimpleLayout2 = "<!--template:SimpleLayout2.cshtml-->";
         static string Template_HtmlReport = "<!--template:HtmlReport.cshtml-->";
+        static string Template_PartialModel = "<!--template:PartialModel.cshtml-->";
 
         static string TemplateM_Layout = "<!--template:_Layout.shtml-->";
         static string TemplateM_Pages_Layout = "<!--template:Pages/_Layout.shtml-->";
@@ -253,6 +296,58 @@ namespace RazorRockstars.Console.Files
         public void Can_get_last_view_template_compiled()
         {
             Assert200(Host + "/rockstars?View=Rockstars3", ViewRockstars3, Template_SimpleLayout2);
+        }
+
+        [Test]
+        public void Can_get_razor_view_with_interface_response()
+        {
+            Assert200(Host + "/ilist1/IList", ViewIList, Template_HtmlReport);
+            Assert200(Host + "/ilist2/IList", ViewIList, Template_HtmlReport);
+            Assert200(Host + "/ilist3/IList", ViewIList, Template_HtmlReport);
+
+            Assert200(Host + "/ilist1/List", ViewList, Template_HtmlReport);
+            Assert200(Host + "/ilist2/List", ViewList, Template_HtmlReport);
+            Assert200(Host + "/ilist3/List", ViewList, Template_HtmlReport);
+        }
+
+        [Test]
+        public void Can_get_PartialModel()
+        {
+            var containsItems = new List<string>
+                {
+                    Template_PartialModel,
+                    ViewPartialChildModel,
+                };
+
+            5.Times(x => containsItems.Add("<input id=\"SomeProperty\" name=\"SomeProperty\" type=\"text\" value=\"value " + x + "\" />"));
+
+            Assert200(Host + "/partialmodel", containsItems.ToArray());
+        }
+
+        [Test]
+        public void Can_get_RequestPathInfo_in_PartialChildModel()
+        {
+            Assert200(Host + "/partialmodel", Template_PartialModel, ViewPartialChildModel, "PathInfo: <b>/partialmodel</b>");
+        }
+
+        [Test]
+        public void Does_return_populated_error_page()
+        {
+            AssertStatus(Host + "/modelerror?message=Custom_Error_Message", HttpStatusCode.BadRequest,
+                Template_HtmlReport,
+                "<!--view:ModelError.cshtml-->",
+                "<p>ResponseStatus: ArgumentException</p>",
+                "<p>ResponseStatus: Custom_Error_Message was triggered by client</p>");
+        }
+
+        [Test]
+        public void Does_return_populated_error_page_with_custom_status()
+        {
+            AssertStatus(Host + "/modelerror/417?message=Custom_Error_Message_Only", HttpStatusCode.ExpectationFailed,
+                Template_HtmlReport,
+                "<!--view:ModelError.cshtml-->",
+                "<p>ResponseStatus: ArgumentException</p>",
+                "<p>ResponseStatus: Custom_Error_Message_Only</p>");
         }
     }
 }

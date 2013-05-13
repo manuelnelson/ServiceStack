@@ -6,6 +6,7 @@ using ServiceStack.Html;
 using ServiceStack.Razor;
 using ServiceStack.ServiceHost.Tests.Formats;
 using ServiceStack.ServiceInterface.Testing;
+using ServiceStack.Text;
 using ServiceStack.VirtualPath;
 
 namespace ServiceStack.ServiceHost.Tests.Formats_Razor
@@ -27,7 +28,7 @@ namespace ServiceStack.ServiceHost.Tests.Formats_Razor
 		}
 	}
 
-	public class CustomBaseClass<T> : ViewPage<T>
+    public class CustomBaseClass<T> : ViewPage<T> where T : class
 	{
 		public MvcHtmlString Field(string fieldName, string fieldValue)
 		{
@@ -37,6 +38,10 @@ namespace ServiceStack.ServiceHost.Tests.Formats_Razor
 
 			return MvcHtmlString.Create(sb.ToString());
 		}
+
+        public override void Execute()
+        {            
+        }
 	}
 
 	[TestFixture]
@@ -45,11 +50,10 @@ namespace ServiceStack.ServiceHost.Tests.Formats_Razor
 		[SetUp]
 		public void OnBeforeEachTest()
 		{
+		    RazorFormat.Instance = null;
             base.RazorFormat = new RazorFormat {
                 VirtualPathProvider = new InMemoryVirtualPathProvider(new BasicAppHost()),
-                TemplateProvider = { CompileInParallelWithNoOfThreads = 0 },
-            };
-            base.RazorFormat.Init();
+            }.Init();
         }
 
 		[Test]
@@ -76,7 +80,7 @@ namespace ServiceStack.ServiceHost.Tests.Formats_Razor
 </html>".NormalizeNewLines();
 
 			var pageTemplate = 
-@"@{ Layout = ""websiteTemplate.cshtml""; }
+@"@layout websiteTemplate
 
 <h1>About this Site</h1>
 
@@ -102,8 +106,7 @@ current date/year: @DateTime.Now.Year</p>
         </div>
         
         <div id=""body"">
-            
-<h1>About this Site</h1>
+            <h1>About this Site</h1>
 
 <p>This is some content that will make up the ""about"" 
 page of our web-site. We'll use this in conjunction
@@ -111,7 +114,7 @@ with a layout template. The content you are seeing here
 comes from ^^^websiteTemplate.</p>
 
 <p>And obviously I can have code in here too. Here is the
-current date/year: 2012</p>
+current date/year: 2013</p>
 
         </div>
     
@@ -119,12 +122,12 @@ current date/year: 2012</p>
 </html>".NormalizeNewLines();
 
 
-            RazorFormat.AddFileAndTemplate("websiteTemplate.cshtml", websiteTemplate);
-			var dynamicPage = AddViewPage(PageName, @"C:\path\to\page-tpl", pageTemplate);
+            RazorFormat.AddFileAndPage("/views/websiteTemplate.cshtml", websiteTemplate);
+            var dynamicPage = RazorFormat.AddFileAndPage(@"/page.cshtml", pageTemplate);
 
-			var template = dynamicPage.RenderToHtml();
+            var template = RazorFormat.RenderToHtml(dynamicPage);
 
-			Console.WriteLine(template);
+		    template.Print();
 			Assert.That(template, Is.EqualTo(expectedHtml));
 		}
 
@@ -213,9 +216,7 @@ with a layout template. The content you are seeing here
 comes from ^^^websiteTemplate.</p>
 
 <p>And obviously I can have code in here too. Here is the
-current date/year: 2012</p>
-
-
+current date/year: 2013</p>
 
 
 
@@ -231,15 +232,13 @@ current date/year: 2012</p>
 </html>".NormalizeNewLines();
 
 
-            RazorFormat.AddFileAndTemplate("websiteTemplate.cshtml", websiteTemplate);
+            RazorFormat.AddFileAndPage("/views/websiteTemplate.cshtml", websiteTemplate);
 
-			var dynamicPage = AddViewPage(
-                PageName, @"C:\path\to\page-tpl.cshtml", pageTemplate, "websiteTemplate.cshtml");
+            var dynamicPage = RazorFormat.AddFileAndPage("/page.cshtml", pageTemplate);
+            
+            var html = RazorFormat.RenderToHtml(dynamicPage, layout: "websiteTemplate");
 
-
-			var html = dynamicPage.RenderToHtml();
-
-			Console.WriteLine(html);
+			html.Print();
 			Assert.That(html, Is.EqualTo(expectedHtml));
 		}
 
@@ -260,7 +259,7 @@ current date/year: 2012</p>
 </fieldset>
 ".NormalizeNewLines();
 
-			var expectedHtml = 
+			var expectedHtml =
 @"<fieldset>
     <legend>Edit Product</legend>
     
@@ -268,15 +267,15 @@ current date/year: 2012</p>
         <label for=""ProductID"">ProductID</label>
     </div>
     <div>
-        <input name=""ProductID"" type=""text"" value=""10"" />
+        <input id=""ProductID"" name=""ProductID"" type=""text"" value=""10"" />
     </div>
 </fieldset>
 ".NormalizeNewLines();
 
 			var product = new Product { ProductID = 10 };
-			var html = RenderToHtml(pageTemplate, product);
+			var html = RazorFormat.CreateAndRenderToHtml(pageTemplate, product);
 
-			Console.WriteLine(html);
+			html.Print();
 			Assert.That(html, Is.EqualTo(expectedHtml));
 		}
 
@@ -291,8 +290,7 @@ current date/year: 2012</p>
     @Prod.ProductTable(Model)
 </fieldset>".NormalizeNewLines();
 
-			var expectedHtml = @"
-<fieldset>
+			var expectedHtml = @"<fieldset>
     <legend>All Products</legend>
     <table><thead><tr><th>Id</th><th>Name</th><th>Price</th></tr></thead><tbody>
 <tr><th>0</th><th>Pen</th><th>1.99</th></tr>
@@ -310,11 +308,11 @@ current date/year: 2012</p>
 				new Product("DVD", 11.99m),
 			};
 
-            RazorFormat.TemplateService.TemplateBaseType = typeof(CustomViewBase<>);
+            RazorFormat.PageBaseType = typeof(CustomViewBase<>);
 
-			var html = RenderToHtml(pageTemplate, products);
+			var html = RazorFormat.CreateAndRenderToHtml(pageTemplate, model:products);
 
-			Console.WriteLine(html);
+			html.Print();
 			Assert.That(html, Is.EqualTo(expectedHtml));
 		}
 
@@ -329,19 +327,18 @@ current date/year: 2012</p>
     @Field(""Name"", Model.Name)
 </fieldset>".NormalizeNewLines();
 
-			var expectedHtml = @"
-<fieldset>
+			var expectedHtml = @"<fieldset>
     <legend>All Products</legend>
     <label for='Name'>Name</label>
 <input name='Name' value='Pen'/>
 
 </fieldset>".NormalizeNewLines();
 
-			RazorFormat.DefaultBaseType = typeof(CustomBaseClass<>);
+			RazorFormat.PageBaseType = typeof(CustomBaseClass<>);
 
-			var html = RenderToHtml(pageTemplate, new Product("Pen", 1.99m));
+			var html = RazorFormat.CreateAndRenderToHtml(pageTemplate, new Product("Pen", 1.99m));
 
-			Console.WriteLine(html);
+			html.Print();
 			Assert.That(html, Is.EqualTo(expectedHtml));
 		}
 

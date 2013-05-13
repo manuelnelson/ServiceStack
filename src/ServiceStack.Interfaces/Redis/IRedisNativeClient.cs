@@ -1,11 +1,11 @@
 //
-// http://code.google.com/p/servicestack/wiki/ServiceStackRedis
+// https://github.com/ServiceStack/ServiceStack.Redis/
 // ServiceStack.Redis: ECMA CLI Binding to the Redis key-value storage system
 //
 // Authors:
 //   Demis Bellot (demis.bellot@gmail.com)
 //
-// Copyright 2010 Liquidbit Ltd.
+// Copyright 2013 ServiceStack.
 //
 // Licensed under the same terms of Redis and ServiceStack: new BSD license.
 //
@@ -60,7 +60,7 @@ namespace ServiceStack.Redis
 		bool MSetNx(string[] keys, byte[][] values);
 		byte[] Get(string key);
 		byte[] GetSet(string key, byte[] value);
-		byte[][] MGet(params byte[][] keys);
+		byte[][] MGet(params byte[][] keysAndArgs);
 		byte[][] MGet(params string[] keys);
 		int Del(string key);
 		int Del(params string[] keys);
@@ -100,6 +100,7 @@ namespace ServiceStack.Redis
 		int LRem(string listId, int removeNoOfMatches, byte[] value);
 		int LLen(string listId);
 		byte[] LIndex(string listId, int listIndex);
+        void LInsert(string listId, bool insertBefore, byte[] pivot, byte[] value);
 		void LSet(string listId, int listIndex, byte[] value);
 		byte[] LPop(string listId);
 		byte[] RPop(string listId);
@@ -165,7 +166,7 @@ namespace ServiceStack.Redis
 		int HIncrby(string hashId, byte[] key, int incrementBy);
 		double HIncrbyFloat(string hashId, byte[] key, double incrementBy);
 		byte[] HGet(string hashId, byte[] key);
-		byte[][] HMGet(string hashId, params byte[][] keys);
+		byte[][] HMGet(string hashId, params byte[][] keysAndArgs);
 		int HDel(string hashId, byte[] key);
 		int HExists(string hashId, byte[] key);
 		int HLen(string hashId);
@@ -183,10 +184,16 @@ namespace ServiceStack.Redis
 		byte[][] PUnSubscribe(params string[] toChannelsMatchingPatterns);
 		byte[][] ReceiveMessages();
 
-		int EvalInt(string body, int numberKeysInArgs, params byte[][] keys);
-		string EvalStr(string body, int numberKeysInArgs, params byte[][] keys);
-		byte[][] Eval(string body, int numberKeysInArgs, params byte[][] keys);
-		byte[][] ScriptExists(params byte[][] sha1Refs);
+        //Redis LUA support
+        int EvalInt(string luaBody, int numberOfKeys, params byte[][] keysAndArgs);
+        int EvalShaInt(string sha1, int numberOfKeys, params byte[][] keysAndArgs);
+        string EvalStr(string luaBody, int numberOfKeys, params byte[][] keysAndArgs);
+        string EvalShaStr(string sha1, int numberOfKeys, params byte[][] keysAndArgs);
+        byte[][] Eval(string luaBody, int numberOfKeys, params byte[][] keysAndArgs);
+        byte[][] EvalSha(string sha1, int numberOfKeys, params byte[][] keysAndArgs);
+
+        string CalculateSha1(string luaBody);
+        byte[][] ScriptExists(params byte[][] sha1Refs);
 		void ScriptFlush();
 		void ScriptKill();
 		byte[] ScriptLoad(string body);

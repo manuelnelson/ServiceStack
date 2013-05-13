@@ -37,7 +37,7 @@ namespace RazorRockstars.Web
             url.Print();
             try
             {
-                var text = url.GetStringFromUrl(AcceptContentType, r => {
+                var text = url.GetStringFromUrl(AcceptContentType, responseFilter: r => {
                     if (r.StatusCode != statusCode)
                         Assert.Fail("'{0}' returned {1} expected {2}".Fmt(url, r.StatusCode, statusCode));
                 });
@@ -59,24 +59,36 @@ namespace RazorRockstars.Web
 		public static string AcceptContentType = "*/*";
 		public void Assert200(string url, params string[] containsItems)
 		{
-            url.Print();
-			var text = url.GetStringFromUrl(AcceptContentType, r => {
-				if (r.StatusCode != HttpStatusCode.OK)
-					Assert.Fail(url + " did not return 200 OK");
-			});
-			foreach (var item in containsItems)
-			{
-				if (!text.Contains(item))
-				{
-					Assert.Fail(item + " was not found in " + url);
-				}
-			}
-		}
+            try
+            {
+                Debug.WriteLine(url);
+                var text = url.GetStringFromUrl(AcceptContentType, responseFilter: r => {
+                    if (r.StatusCode != HttpStatusCode.OK)
+                        Assert.Fail(url + " did not return 200 OK");
+                });
+                foreach (var item in containsItems)
+                {
+                    if (!text.Contains(item))
+                    {
+                        Assert.Fail(item + " was not found in " + url);
+                    }
+                }
+            }
+            catch (WebException webEx)
+            {
+                var errorResponse = ((HttpWebResponse)webEx.Response);
+                var bytes = errorResponse.GetResponseStream().ReadFully();
+                var text = bytes.FromUtf8Bytes();
+                text.Print();
+                
+                throw;
+            }
+        }
 
 		public void Assert200UrlContentType(string url, string contentType)
 		{
             url.Print();
-            url.GetStringFromUrl(AcceptContentType, r => {
+            url.GetStringFromUrl(AcceptContentType, responseFilter: r => {
 				if (r.StatusCode != HttpStatusCode.OK)
 					Assert.Fail(url + " did not return 200 OK: " + r.StatusCode);
 				if (!r.ContentType.StartsWith(contentType))
@@ -260,6 +272,7 @@ namespace RazorRockstars.Web
                     }
                     catch (Exception ex) {
                         errors.Add(ex);
+                        Assert.Fail("#" + count + "  - " + ex.Message + ":: " + ex.GetResponseBody());
                     }
                 }));
 

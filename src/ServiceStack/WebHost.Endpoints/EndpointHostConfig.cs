@@ -18,6 +18,7 @@ using ServiceStack.Logging;
 using ServiceStack.Logging.Support.Logging;
 using ServiceStack.Markdown;
 using ServiceStack.ServiceHost;
+using ServiceStack.ServiceInterface;
 using ServiceStack.ServiceModel;
 using ServiceStack.Text;
 using ServiceStack.WebHost.Endpoints.Extensions;
@@ -33,6 +34,11 @@ namespace ServiceStack.WebHost.Endpoints
         public static readonly string LicensePublicKey = "<RSAKeyValue><Modulus>19kx2dJoOIrMYypMTf8ssiCALJ7RS/Iz2QG0rJtYJ2X0+GI+NrgOCapkh/9aDVBieobdClnuBgW08C5QkfBdLRqsptiSu50YIqzVaNBMwZPT0e7Ke02L/fV/M/fVPsolHwzMstKhdWGdK8eNLF4SsLEcvnb79cx3/GnZbXku/ro5eOrTseKL3s4nM4SdMRNn7rEAU0o0Ijb3/RQbhab8IIRB4pHwk1mB+j/mcAQAtMerwpHfwpEBLWlQyVpu0kyKJCEkQjbaPzvfglDRpyBOT5GMUnrcTT/sBr5kSJYpYrgHnA5n4xJnvrnyFqdzXwgGFlikRTbc60pk1cQEWcHgYw==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
         public static bool SkipPathValidation = false;
+        /// <summary>
+        /// Use: \[Route\("[^\/]  regular expression to find violating routes in your sln
+        /// </summary>
+        public static bool SkipRouteValidation = false;
+
         public static string ServiceStackPath = null;
 
         private static EndpointHostConfig instance;
@@ -58,6 +64,8 @@ namespace ServiceStack.WebHost.Endpoints
                         MetadataRedirectPath = null,
                         DefaultContentType = null,
                         AllowJsonpRequests = true,
+                        AllowNonHttpOnlyCookies = false,
+                        UseHttpsLinks = false,
                         DebugMode = false,
                         DefaultDocuments = new List<string> {
 							"default.htm",
@@ -74,14 +82,15 @@ namespace ServiceStack.WebHost.Endpoints
                         AllowFileExtensions = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase)
 						{
 							"js", "css", "htm", "html", "shtm", "txt", "xml", "rss", "csv", 
-							"jpg", "jpeg", "gif", "png", "bmp", "ico", "tif", "tiff", 
+							"jpg", "jpeg", "gif", "png", "bmp", "ico", "tif", "tiff", "svg", 
 							"avi", "divx", "m3u", "mov", "mp3", "mpeg", "mpg", "qt", "vob", "wav", "wma", "wmv", 
-							"flv", "xap", "xaml", 
+							"flv", "xap", "xaml", "ogg", "mp4", "webm", 
 						},
                         DebugAspNetHostEnvironment = Env.IsMono ? "FastCGI" : "IIS7",
                         DebugHttpListenerHostEnvironment = Env.IsMono ? "XSP" : "WebServer20",
                         EnableFeatures = Feature.All,
                         WriteErrorsToResponse = true,
+                        ReturnsInnerException = true,
                         MarkdownOptions = new MarkdownOptions(),
                         MarkdownBaseType = typeof(MarkdownViewBase),
                         MarkdownGlobalHelpers = new Dictionary<string, Type>(),
@@ -93,12 +102,23 @@ namespace ServiceStack.WebHost.Endpoints
 						},
                         AppendUtf8CharsetOnContentTypes = new HashSet<string> { ContentType.Json, },
                         RawHttpHandlers = new List<Func<IHttpRequest, IHttpHandler>>(),
+                        RouteNamingConventions = new List<RouteNamingConventionDelegate> {
+					        RouteNamingConvention.WithRequestDtoName,
+					        RouteNamingConvention.WithMatchingAttributes,
+					        RouteNamingConvention.WithMatchingPropertyNames
+                        },
                         CustomHttpHandlers = new Dictionary<HttpStatusCode, IServiceStackHttpHandler>(),
                         GlobalHtmlErrorHttpHandler = null,
                         MapExceptionToStatusCode = new Dictionary<Type, int>(),
+                        OnlySendSessionCookiesSecurely = false,
+                        RestrictAllCookiesToDomain = null,
                         DefaultJsonpCacheExpiration = new TimeSpan(0, 20, 0),
                         MetadataVisibility = EndpointAttributes.Any,
                         Return204NoContentForEmptyResponse = true,
+                        AllowPartialResponses = true,
+                        IgnoreWarningsOnPropertyNames = new List<string>() {
+                            "format", "callback", "debug", "_"
+                        }
                     };
 
                     if (instance.ServiceStackHandlerFactoryPath == null)
@@ -145,6 +165,7 @@ namespace ServiceStack.WebHost.Endpoints
             this.AllowFileExtensions = instance.AllowFileExtensions;
             this.EnableFeatures = instance.EnableFeatures;
             this.WriteErrorsToResponse = instance.WriteErrorsToResponse;
+            this.ReturnsInnerException = instance.ReturnsInnerException;
             this.MarkdownOptions = instance.MarkdownOptions;
             this.MarkdownBaseType = instance.MarkdownBaseType;
             this.MarkdownGlobalHelpers = instance.MarkdownGlobalHelpers;
@@ -152,12 +173,18 @@ namespace ServiceStack.WebHost.Endpoints
             this.AddMaxAgeForStaticMimeTypes = instance.AddMaxAgeForStaticMimeTypes;
             this.AppendUtf8CharsetOnContentTypes = instance.AppendUtf8CharsetOnContentTypes;
             this.RawHttpHandlers = instance.RawHttpHandlers;
+            this.RouteNamingConventions = instance.RouteNamingConventions;
             this.CustomHttpHandlers = instance.CustomHttpHandlers;
             this.GlobalHtmlErrorHttpHandler = instance.GlobalHtmlErrorHttpHandler;
             this.MapExceptionToStatusCode = instance.MapExceptionToStatusCode;
+            this.OnlySendSessionCookiesSecurely = instance.OnlySendSessionCookiesSecurely;
+            this.RestrictAllCookiesToDomain = instance.RestrictAllCookiesToDomain;
             this.DefaultJsonpCacheExpiration = instance.DefaultJsonpCacheExpiration;
             this.MetadataVisibility = instance.MetadataVisibility;
             this.Return204NoContentForEmptyResponse = Return204NoContentForEmptyResponse;
+            this.AllowNonHttpOnlyCookies = instance.AllowNonHttpOnlyCookies;
+            this.AllowPartialResponses = instance.AllowPartialResponses;
+            this.IgnoreWarningsOnPropertyNames = instance.IgnoreWarningsOnPropertyNames;
         }
 
         public static string GetAppConfigPath()
@@ -207,8 +234,8 @@ namespace ServiceStack.WebHost.Endpoints
                         .ForEach(x => razorNamespaces.Add(x));
                 }
 
-                log.Debug("Loaded Razor Namespaces: in {0}: {1}: {2}"
-                    .Fmt(configPath, "~/Web.config".MapHostAbsolutePath(), razorNamespaces.Dump()));
+                //log.Debug("Loaded Razor Namespaces: in {0}: {1}: {2}"
+                //    .Fmt(configPath, "~/Web.config".MapHostAbsolutePath(), razorNamespaces.Dump()));
 
                 return razorNamespaces;
             }
@@ -326,7 +353,7 @@ namespace ServiceStack.WebHost.Endpoints
         {
             return XDocument.Parse(rawXml).Root.Element("handlers")
                 .Descendants("add")
-                .Where(handler => EndpointHostConfig.EnsureHandlerTypeAttribute(handler).StartsWith("ServiceStack"))
+                .Where(handler => EnsureHandlerTypeAttribute(handler).StartsWith("ServiceStack"))
                 .Select(handler => handler.Attribute("path").Value)
                 .FirstOrDefault();
         }
@@ -366,6 +393,8 @@ namespace ServiceStack.WebHost.Endpoints
         public string DebugHttpListenerHostEnvironment { get; set; }
         public List<string> DefaultDocuments { get; private set; }
 
+        public List<string> IgnoreWarningsOnPropertyNames { get; private set; }
+
         public HashSet<string> IgnoreFormatsInMetadata { get; set; }
 
         public HashSet<string> AllowFileExtensions { get; set; }
@@ -382,6 +411,7 @@ namespace ServiceStack.WebHost.Endpoints
         public bool UseBclJsonSerializers { get; set; }
         public Dictionary<string, string> GlobalResponseHeaders { get; set; }
         public Feature EnableFeatures { get; set; }
+        public bool ReturnsInnerException { get; set; }
         public bool WriteErrorsToResponse { get; set; }
 
         public MarkdownOptions MarkdownOptions { get; set; }
@@ -395,12 +425,22 @@ namespace ServiceStack.WebHost.Endpoints
 
         public List<Func<IHttpRequest, IHttpHandler>> RawHttpHandlers { get; set; }
 
+        public List<RouteNamingConventionDelegate> RouteNamingConventions { get; set; }
+
         public Dictionary<HttpStatusCode, IServiceStackHttpHandler> CustomHttpHandlers { get; set; }
         public IServiceStackHttpHandler GlobalHtmlErrorHttpHandler { get; set; }
         public Dictionary<Type, int> MapExceptionToStatusCode { get; set; }
 
+        public bool OnlySendSessionCookiesSecurely { get; set; }
+        public string RestrictAllCookiesToDomain { get; set; }
+
         public TimeSpan DefaultJsonpCacheExpiration { get; set; }
         public bool Return204NoContentForEmptyResponse { get; set; }
+        public bool AllowPartialResponses { get; set; }
+
+        public bool AllowNonHttpOnlyCookies { get; set; }
+
+        public bool UseHttpsLinks { get; set; }
 
         private string defaultOperationNamespace;
         public string DefaultOperationNamespace
@@ -553,7 +593,7 @@ namespace ServiceStack.WebHost.Endpoints
             {
                 CustomHttpHandlers.TryGetValue(errorStatus, out httpHandler);
             }
-            return GlobalHtmlErrorHttpHandler ?? httpHandler;
+            return httpHandler ?? GlobalHtmlErrorHttpHandler;
         }
 
         public IHttpHandler GetCustomErrorHttpHandler(HttpStatusCode errorStatus)
@@ -563,6 +603,6 @@ namespace ServiceStack.WebHost.Endpoints
             var httpHandler = ssHandler as IHttpHandler;
             return httpHandler ?? new ServiceStackHttpHandler(ssHandler);
         }
-    }
+	}
 
 }

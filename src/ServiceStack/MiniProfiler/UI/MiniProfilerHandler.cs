@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Web;
+using System.Linq;
 using System.Text;
-using ServiceStack.Common;
+using System.Web;
+using ServiceStack.Text;
 using ServiceStack.MiniProfiler.Helpers;
 using ServiceStack.ServiceHost;
 using ServiceStack.WebHost.Endpoints;
-using ServiceStack.WebHost.Endpoints.Extensions;
 using ServiceStack.WebHost.Endpoints.Support;
-//using System.Web.Routing;
+using HttpRequestWrapper = ServiceStack.WebHost.Endpoints.Extensions.HttpRequestWrapper;
+using HttpResponseWrapper = ServiceStack.WebHost.Endpoints.Extensions.HttpResponseWrapper;
 
 namespace ServiceStack.MiniProfiler.UI
 {
@@ -20,7 +21,7 @@ namespace ServiceStack.MiniProfiler.UI
 	{
 		public static IHttpHandler MatchesRequest(IHttpRequest request)
 		{
-			var file = Path.GetFileNameWithoutExtension(request.PathInfo);
+			var file = GetFileNameWithoutExtension(request.PathInfo);
 			return file != null && file.StartsWith("ssr-")
 				? new MiniProfilerHandler()
 				: null;
@@ -63,7 +64,7 @@ namespace ServiceStack.MiniProfiler.UI
 
 				result = format.Format(new {
 					//path = VirtualPathUtility.ToAbsolute(MiniProfiler.Settings.RouteBasePath).EnsureTrailingSlash(),
-					path = !string.IsNullOrEmpty(path) ? path + "/" : "",
+                    path = !string.IsNullOrEmpty(path) ? path.EnsureTrailingSlash() : "",
 					version = Profiler.Settings.Version,
 					ids = ids.ToJson(),
 					position = (position ?? Profiler.Settings.PopupRenderPosition).ToString().ToLower(),
@@ -77,6 +78,12 @@ namespace ServiceStack.MiniProfiler.UI
 
 			return new HtmlString(result);
 		}
+
+        public static string GetFileNameWithoutExtension(string pathInfo)
+        {
+            //Path.GetFileNameWithoutExtension() throws exception with illegal chars
+            return pathInfo.SplitOnLast('.')[0].SplitOnLast('/').Last();
+        }
 
 		//internal static void RegisterRoutes()
 		//{

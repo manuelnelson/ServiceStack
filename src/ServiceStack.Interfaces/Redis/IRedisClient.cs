@@ -1,11 +1,11 @@
 //
-// http://code.google.com/p/servicestack/wiki/ServiceStackRedis
+// https://github.com/ServiceStack/ServiceStack.Redis/
 // ServiceStack.Redis: ECMA CLI Binding to the Redis key-value storage system
 //
 // Authors:
 //   Demis Bellot (demis.bellot@gmail.com)
 //
-// Copyright 2010 Liquidbit Ltd.
+// Copyright 2013 ServiceStack.
 //
 // Licensed under the same terms of Redis and ServiceStack: new BSD license.
 //
@@ -179,6 +179,7 @@ namespace ServiceStack.Redis
 		string BlockingPopItemFromList(string listId, TimeSpan? timeOut);
         ItemRef BlockingPopItemFromLists(string []listIds, TimeSpan? timeOut);
 		string PopAndPushItemBetweenLists(string fromListId, string toListId);
+        string BlockingPopAndPushItemBetweenLists(string fromListId, string toListId, TimeSpan? timeOut);
 
 		#endregion
 
@@ -262,11 +263,30 @@ namespace ServiceStack.Redis
 
 		#region Eval/Lua operations
 
-		string GetEvalStr(string body, int numOfArgs, params string[] args);
-		int GetEvalInt(string body, int numOfArgs, params string[] args);
-		List<string> GetEvalMultiData(string body, int numOfArgs, params string[] args);
+        string ExecLuaAsString(string luaBody, params string[] args);
+        string ExecLuaAsString(string luaBody, string[] keys, string[] args);
+        string ExecLuaShaAsString(string sha1, params string[] args);
+        string ExecLuaShaAsString(string sha1, string[] keys, string[] args);
+        
+        int ExecLuaAsInt(string luaBody, params string[] args);
+        int ExecLuaAsInt(string luaBody, string[] keys, string[] args);
+        int ExecLuaShaAsInt(string sha1, params string[] args);
+        int ExecLuaShaAsInt(string sha1, string[] keys, string[] args);
 
-		#endregion
+        List<string> ExecLuaAsList(string luaBody, params string[] args);
+        List<string> ExecLuaAsList(string luaBody, string[] keys, string[] args);
+        List<string> ExecLuaShaAsList(string sha1, params string[] args);
+        List<string> ExecLuaShaAsList(string sha1, string[] keys, string[] args);
+
+        string CalculateSha1(string luaBody);
+        
+        bool HasLuaScript(string sha1Ref);
+        Dictionary<string, bool> WhichLuaScriptsExists(params string[] sha1Refs);
+        void RemoveAllLuaScripts();
+        void KillRunningLuaScript();
+        string LoadLuaScript(string body);
+        
+        #endregion
 
 	}
 }

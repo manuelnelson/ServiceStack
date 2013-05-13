@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DotNetOpenAuth.Messaging;
 using DotNetOpenAuth.OpenId.Extensions.AttributeExchange;
 using DotNetOpenAuth.OpenId.Extensions.SimpleRegistration;
@@ -38,8 +39,9 @@ namespace ServiceStack.Authentication.OpenId
             var tokens = Init(authService, ref session, request);
 
             var httpReq = authService.RequestContext.Get<IHttpRequest>();
-            var httpMethod = httpReq.HttpMethod;
-            if (httpMethod == HttpMethods.Post)
+            var isOpenIdRequest = !httpReq.GetParam("openid.mode").IsNullOrEmpty();
+
+            if (!isOpenIdRequest)
             {
                 var openIdUrl = httpReq.GetParam("OpenIdUrl") ?? base.AuthRealm;
                 if (openIdUrl.IsNullOrEmpty())
@@ -80,7 +82,7 @@ namespace ServiceStack.Authentication.OpenId
                 }
             }
 
-            if (httpMethod == HttpMethods.Get)
+            if (isOpenIdRequest)
             {
                 using (var openid = new OpenIdRelyingParty())
                 {
@@ -226,17 +228,18 @@ namespace ServiceStack.Authentication.OpenId
 
             if (fetchResponse == null) return ret;
 
+	        string fullName = null;
             var names = new List<string>();
             var emails = new List<string>();
 
             if (fetchResponse.Attributes.Contains("http://schema.openid.net/namePerson"))
-                names.AddRange(fetchResponse.Attributes["http://schema.openid.net/namePerson"].Values);
+                fullName = fetchResponse.Attributes["http://schema.openid.net/namePerson"].Values.FirstOrDefault();
 
-            if (fetchResponse.Attributes.Contains(WellKnownAttributes.Name.FullName))
-                names.AddRange(fetchResponse.Attributes[WellKnownAttributes.Name.FullName].Values);
+            if (fullName == null && fetchResponse.Attributes.Contains(WellKnownAttributes.Name.FullName))
+                fullName = fetchResponse.Attributes[WellKnownAttributes.Name.FullName].Values.FirstOrDefault();
 
-            if (fetchResponse.Attributes.Contains(WellKnownAttributes.Name.Alias))
-                names.AddRange(fetchResponse.Attributes[WellKnownAttributes.Name.Alias].Values);
+            if (fullName == null && fetchResponse.Attributes.Contains(WellKnownAttributes.Name.Alias))
+                fullName = fetchResponse.Attributes[WellKnownAttributes.Name.Alias].Values.FirstOrDefault();
 
             if (fetchResponse.Attributes.Contains(WellKnownAttributes.Name.First))
                 names.AddRange(fetchResponse.Attributes[WellKnownAttributes.Name.First].Values);
@@ -250,8 +253,11 @@ namespace ServiceStack.Authentication.OpenId
             if (fetchResponse.Attributes.Contains(WellKnownAttributes.Contact.Email))
                 emails.AddRange(fetchResponse.Attributes[WellKnownAttributes.Contact.Email].Values);
 
-            if (names.Count > 0)
-                ret["FullName"] = names[0];
+			if (fullName == null && names.Count > 0) 
+				fullName = string.Join(" ", names.ToArray());
+
+			if (fullName != null)
+                ret["FullName"] = fullName;
 
             if (emails.Count > 0)
                 ret["Email"] = emails[0];
@@ -285,8 +291,17 @@ namespace ServiceStack.Authentication.OpenId
                 map["BirthDateRaw"] = response.BirthDateRaw;
             if (!response.Country.IsNullOrEmpty())
                 map["Country"] = response.Country;
-            if (response.Culture != null)
-                map["Culture"] = response.Culture.TwoLetterISOLanguageName;
+
+            try
+            {
+                if (response.Culture != null)
+                    map["Culture"] = response.Culture.TwoLetterISOLanguageName;
+            }
+            catch (Exception ex) //CultureNotFoundException (.NET 4.5)
+            {
+                map["Culture"] = "en";
+            }
+
             if (!response.Email.IsNullOrEmpty())
                 map["Email"] = response.Email;
             if (!response.FullName.IsNullOrEmpty())

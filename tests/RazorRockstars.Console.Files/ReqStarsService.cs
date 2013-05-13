@@ -8,6 +8,7 @@ using System.Runtime.Serialization;
 using System.Threading;
 using NUnit.Framework;
 using ServiceStack.Common;
+using ServiceStack.Common.Web;
 using ServiceStack.Logging;
 using ServiceStack.Logging.Support.Logging;
 using ServiceStack.OrmLite;
@@ -45,6 +46,12 @@ namespace RazorRockstars.Console.Files
 
     [Route("/reqstars", "GET")]
     public class AllReqstars : IReturn<List<Reqstar>> { }
+
+    [Route("/reqstars/cached/{Aged}", "GET")]
+    public class CachedAllReqstars : IReturn<ReqstarsResponse>
+    {
+        public int Aged { get; set; }        
+    }
 
     public class ReqstarsResponse
     {
@@ -101,6 +108,21 @@ namespace RazorRockstars.Console.Files
         }
     }
 
+    [Route("/modelerror")]
+    [Route("/modelerror/{StatusCode}")]
+    [Route("/modelerror/{StatusCode}/{Message}")]
+    public class ModelError : IReturn<ModelErrorResponse>
+    {
+        public int? StatusCode { get; set; }
+        public string Message { get; set; }
+    }
+
+    public class ModelErrorResponse
+    {
+        public string Result { get; set; }
+        public ResponseStatus ResponseStatus { get; set; }
+    }
+
     public class RoutelessReqstar : IReturn<RoutelessReqstar>
     {
         public int Id { get; set; }
@@ -155,6 +177,20 @@ namespace RazorRockstars.Console.Files
             return Db.Select<Reqstar>();
         }
 
+        public object Any(CachedAllReqstars request)
+        {
+            if (request.Aged <= 0)
+                throw new ArgumentException("Invalid Age");
+
+            var cacheKey = typeof(CachedAllReqstars).Name;
+            return base.RequestContext.ToOptimizedResultUsingCache(base.Cache, cacheKey, () => 
+                new ReqstarsResponse {
+                    Aged = request.Aged,
+                    Total = Db.GetScalar<int>("select count(*) from Reqstar"),
+                    Results = Db.Select<Reqstar>(q => q.Age == request.Aged)
+                });
+        }
+
         [ClientCanSwapTemplates] //allow action-level filters
         public Reqstar Get(GetReqstar request)
         {
@@ -202,6 +238,64 @@ namespace RazorRockstars.Console.Files
         }
 
         public RichRequest Get(RichRequest request)
+        {
+            return request;
+        }
+
+        public object Any(ModelError request)
+        {
+            if (request.StatusCode.HasValue)
+            {
+                throw new HttpError(
+                    request.StatusCode.Value,
+                    typeof(ArgumentException).Name,
+                    request.Message);
+            }
+            throw new ArgumentException(request.Message + " was triggered by client");
+        }
+    }
+
+
+    [Route("/ignore/{ignore}")]
+    public class IgnoreRoute1
+    {
+        public string Name { get; set;  }
+    }
+    [Route("/ignore/{ignore}/between")]
+    public class IgnoreRoute2
+    {
+        public string Name { get; set; }
+    }
+    [Route("/ignore/{ignore}/and/{ignore}")]
+    [Route("/ignore/{ignore}/with/{name}")]
+    public class IgnoreRoute3
+    {
+        public string Name { get; set; }
+    }
+    [Route("/ignorewildcard/{ignore*}")]
+    public class IgnoreWildcardRoute
+    {
+        public string Name { get; set; }
+    }
+
+    public class IgnoreService : Service
+    {
+        public object Get(IgnoreRoute1 request)
+        {
+            return request;
+        }
+
+        public object Get(IgnoreRoute2 request)
+        {
+            return request;
+        }
+
+        public object Get(IgnoreRoute3 request)
+        {
+            return request;
+        }
+
+        public object Get(IgnoreWildcardRoute request)
         {
             return request;
         }
@@ -816,5 +910,36 @@ namespace RazorRockstars.Console.Files
             Assert.That(response.StringSet, Is.EquivalentTo(request.StringSet));
         }
 
+        [Test]
+        public void Does_Cache_RazorPage()
+        {
+            var html = "{0}/reqstars/cached/10".Fmt(Host).GetStringFromUrl();
+            Assert.That(html, Is.StringContaining("<h1>Counter:10</h1>"));
+            html = "{0}/reqstars/cached/20".Fmt(Host).GetStringFromUrl();
+            Assert.That(html, Is.StringContaining("<h1>Counter:10</h1>"));
+        }
+
+        [Test]
+        public void Does_ignore_all_types_of_routes()
+        {
+            var response1 = "{0}/ignore/AnyThing?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreRoute1>();
+            Assert.That(response1.Name, Is.EqualTo("foo"));
+            
+            var response2 = "{0}/ignore/AnyThing/between?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreRoute2>();
+            Assert.That(response2.Name, Is.EqualTo("foo"));
+
+            var response3 = "{0}/ignore/AnyThing/and/everything?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreRoute3>();
+            Assert.That(response3.Name, Is.EqualTo("foo"));
+            response3 = "{0}/ignore/AnyThing/with/foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreRoute3>();
+            Assert.That(response3.Name, Is.EqualTo("foo"));
+            
+            var response4 = "{0}/ignorewildcard?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreWildcardRoute>();
+            Assert.That(response4.Name, Is.EqualTo("foo"));
+            response4 = "{0}/ignorewildcard/a?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreWildcardRoute>();
+            Assert.That(response4.Name, Is.EqualTo("foo"));
+            response4 = "{0}/ignorewildcard/a/b?Name=foo".Fmt(Host).GetJsonFromUrl().FromJson<IgnoreWildcardRoute>();
+            Assert.That(response4.Name, Is.EqualTo("foo"));
+        }
     }
+    
 }

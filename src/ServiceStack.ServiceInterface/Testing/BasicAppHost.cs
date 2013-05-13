@@ -4,13 +4,14 @@ using System.Linq;
 using System.Reflection;
 using Funq;
 using ServiceStack.Html;
+using ServiceStack.IO;
 using ServiceStack.VirtualPath;
 using ServiceStack.ServiceHost;
 using ServiceStack.WebHost.Endpoints;
 
 namespace ServiceStack.ServiceInterface.Testing
 {
-    public class BasicAppHost : IAppHost
+    public class BasicAppHost : IAppHost, IHasContainer, IDisposable
     {
         public BasicAppHost()
         {
@@ -67,13 +68,18 @@ namespace ServiceStack.ServiceInterface.Testing
             get { throw new NotImplementedException(); }
         }
 
-        public EndpointHostConfig Config { get; set; }
+        private EndpointHostConfig config;
+        public EndpointHostConfig Config
+        {
+            get
+            {
+                return config ?? (new EndpointHostConfig("BasicAppHost", new ServiceManager(Container, Assembly.GetExecutingAssembly())));
+            }
+            set { config = value; }
+        }
 
         public void RegisterService(Type serviceType, params string[] atRestPaths)
         {
-            if (Config == null)
-                Config = new EndpointHostConfig("BasicAppHost", new ServiceManager(Container, Assembly.GetExecutingAssembly()));
-
             Config.ServiceManager.RegisterService(serviceType);
         }
 
@@ -89,6 +95,43 @@ namespace ServiceStack.ServiceInterface.Testing
         public IServiceRunner<TRequest> CreateServiceRunner<TRequest>(ActionContext actionContext)
         {
             throw new NotImplementedException();
+        }
+
+        public BasicAppHost Init()
+        {
+            EndpointHost.ConfigureHost(this, GetType().Name, Config.ServiceManager);
+            return this;
+        }
+
+
+        private bool disposed;
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed) return;
+
+            lock (this)
+            {
+                if (disposed) return;
+
+                if (disposing)
+                {
+                    if (EndpointHost.Config != null && EndpointHost.Config.ServiceManager != null)
+                    {
+                        EndpointHost.Config.ServiceManager.Dispose();
+                    }
+
+                    EndpointHost.Dispose();
+                }
+
+                //release unmanaged resources here...
+                disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

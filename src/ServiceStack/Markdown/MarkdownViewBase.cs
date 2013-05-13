@@ -26,7 +26,7 @@ namespace ServiceStack.Markdown
 			this.MarkdownPage = markdownPage;
 
 			var typedModel = (T)model;
-			Html.Init(markdownPage, scopeArgs, renderHtml, new ViewDataDictionary<T>(typedModel));
+			Html.Init(markdownPage, scopeArgs, renderHtml, new ViewDataDictionary<T>(typedModel), null);
 
 			InitHelpers();
 		}
@@ -93,7 +93,7 @@ namespace ServiceStack.Markdown
 			this.ScopeArgs = scopeArgs;
 			this.MarkdownPage = markdownPage;
 
-			Html.Init(markdownPage, scopeArgs, renderHtml, new ViewDataDictionary(model));
+			Html.Init(markdownPage, scopeArgs, renderHtml, new ViewDataDictionary(model), null);
 
 			InitHelpers();
 		}
@@ -114,7 +114,7 @@ namespace ServiceStack.Markdown
 		/// </summary>
 		/// <param name="content"></param>
 		/// <returns></returns>
-		public string Raw(string content)
+		public MvcHtmlString Raw(string content)
 		{
 			return Html.Raw(content);
 		}

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using ServiceStack.ServiceHost;
+using ServiceStack.Common;
 
 namespace ServiceStack.Common.Web
 {
@@ -25,6 +26,7 @@ namespace ServiceStack.Common.Web
         public int StatusCode { set; get; }
         public string StatusDescription { set; get; }
         public string ContentType { get; set; }
+        public bool KeepOpen { get; set; }
 
         public ICookies Cookies { get; set; }
 
@@ -48,7 +50,14 @@ namespace ServiceStack.Common.Web
 
         public void Close()
         {
+            if (KeepOpen) return;
+            ForceClose();
+        }
+
+        public void ForceClose()
+        {
             if (IsClosed) return;
+
             OutputStream.Close();
             IsClosed = true;
         }
@@ -64,5 +73,7 @@ namespace ServiceStack.Common.Web
         }
 
         public bool IsClosed { get; private set; }
+
+        public void SetContentLength(long contentLength) {}
     }
 }

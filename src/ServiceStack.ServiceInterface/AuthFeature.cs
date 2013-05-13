@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using ServiceStack.FluentValidation.Internal;
 using ServiceStack.ServiceInterface.Auth;
 using ServiceStack.WebHost.Endpoints;
 
@@ -37,7 +36,7 @@ namespace ServiceStack.ServiceInterface
             }
         }
 
-        public AuthFeature(Func<IAuthSession> sessionFactory, IAuthProvider[] authProviders)
+        public AuthFeature(Func<IAuthSession> sessionFactory, IAuthProvider[] authProviders, string htmlRedirect = "~/login")
         {
             this.sessionFactory = sessionFactory;
             this.authProviders = authProviders;
@@ -47,10 +46,12 @@ namespace ServiceStack.ServiceInterface
                 { typeof(AssignRolesService), new[]{"/assignroles"} },
                 { typeof(UnAssignRolesService), new[]{"/unassignroles"} },
             };
+
             RegisterPlugins = new List<IPlugin> {
                 new SessionFeature()                          
             };
-            this.HtmlRedirect = "~/login";
+
+            this.HtmlRedirect = htmlRedirect;
         }
 
         public void Register(IAppHost appHost)

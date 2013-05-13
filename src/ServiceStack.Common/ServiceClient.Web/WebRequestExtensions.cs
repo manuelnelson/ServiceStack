@@ -5,119 +5,14 @@ using System.Net;
 using System.Text;
 using ServiceStack.Common;
 using ServiceStack.Common.Web;
+using ServiceStack.Logging;
 using ServiceStack.Text;
 
 namespace ServiceStack.ServiceClient.Web
 {
     public static class WebRequestExtensions
     {
-        public static string DownloadJsonFromUrl(this string url)
-        {
-            return url.DownloadUrl(ContentType.Json);
-        }
-
-        public static string DownloadXmlFromUrl(this string url)
-        {
-            return url.DownloadUrl(ContentType.Xml);
-        }
-
-        public static string DownloadCsvFromUrl(this string url)
-        {
-            return url.DownloadUrl(ContentType.Csv);
-        }
-
-        public static string DownloadUrl(this string url, string acceptContentType)
-        {
-            var webReq = (HttpWebRequest)WebRequest.Create(url);
-            webReq.Accept = acceptContentType;
-            using (var webRes = webReq.GetResponse())
-                return DownloadText(webRes);
-        }
-
-        public static string DownloadUrl(this string url)
-        {
-            var webReq = WebRequest.Create(url);
-            using (var webRes = webReq.GetResponse())
-                return DownloadText(webRes);
-        }
-
-        public static byte[] DownloadBinaryFromUrl(this string url)
-        {
-            var webReq = WebRequest.Create(url);
-            using (var webRes = webReq.GetResponse())
-                return DownloadBinary(webRes);
-        }
-
-        public static string PostJsonToUrl(this string url, string data)
-        {
-            return SendToUrl(url, HttpMethods.Post, Encoding.UTF8.GetBytes(data), ContentType.Json, ContentType.Json);
-        }
-
-        public static string PostJsonToUrl(this string url, object data)
-        {
-            return SendToUrl(url, HttpMethods.Post, Encoding.UTF8.GetBytes(data.ToJson()), ContentType.Json, ContentType.Json);
-        }
-
-        public static string PostToUrl(this string url, string data, string requestContentType = null, string acceptContentType = null)
-        {
-            return SendToUrl(url, HttpMethods.Post, Encoding.UTF8.GetBytes(data), requestContentType, acceptContentType);
-        }
-
-        public static string PutToUrl(this string url, string data, string requestContentType = null, string acceptContentType = null)
-        {
-            return SendToUrl(url, HttpMethods.Put, Encoding.UTF8.GetBytes(data), requestContentType, acceptContentType);
-        }
-
-        public static string PostToUrl(this string url, byte[] data, string requestContentType = null, string acceptContentType = null)
-        {
-            return SendToUrl(url, HttpMethods.Post, data, requestContentType, acceptContentType);
-        }
-
-        public static string PutToUrl(this string url, byte[] data, string requestContentType = null, string acceptContentType = null)
-        {
-            return SendToUrl(url, HttpMethods.Put, data, requestContentType, acceptContentType);
-        }
-
-        private static string SendToUrl(string url, string httpMethod, byte[] data, string requestContentType = null, string acceptContentType = null)
-        {
-            var webReq = (HttpWebRequest) WebRequest.Create(url);
-            webReq.Method = httpMethod;
-
-            if (requestContentType != null)
-                webReq.ContentType = requestContentType;
-
-            if (acceptContentType != null)
-                webReq.Accept = acceptContentType;
-
-            try
-            {
-                using (var req = webReq.GetRequestStream())
-                    req.Write(data, 0, data.Length);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error sending Request: " + ex);
-                throw;
-            }
-
-            try
-            {
-                using (var webRes = webReq.GetResponse())
-                    return DownloadText(webRes);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error reading Response: " + ex);
-                throw;
-            }
-        }
-
-        public static string DownloadAsString(this string url)
-        {
-            var webReq = WebRequest.Create(url);
-            using (var webRes = webReq.GetResponse())
-                return DownloadText(webRes);
-        }
+        private static readonly ILog Log = LogManager.GetLogger(typeof (WebRequestExtensions));
 
         public static string DownloadText(this WebResponse webRes)
         {
@@ -152,6 +47,22 @@ namespace ServiceStack.ServiceClient.Web
             }
         }
 
+        public static WebResponse PostFileToUrl(this string url,
+            FileInfo uploadFileInfo, string uploadFileMimeType,
+            string acceptContentType = null,
+            Action<HttpWebRequest> requestFilter = null)
+        {
+            var webReq = (HttpWebRequest)WebRequest.Create(url);
+            using (var fileStream = uploadFileInfo.OpenRead())
+            {
+                var fileName = uploadFileInfo.Name;
+
+                webReq.UploadFile(fileStream, fileName, uploadFileMimeType, acceptContentType:acceptContentType, requestFilter:requestFilter);
+            }
+
+            return webReq.GetResponse();
+        }
+
         public static WebResponse UploadFile(this WebRequest webRequest,
             FileInfo uploadFileInfo, string uploadFileMimeType)
         {
@@ -165,13 +76,20 @@ namespace ServiceStack.ServiceClient.Web
             return webRequest.GetResponse();
         }
 
-        public static void UploadFile(this WebRequest webRequest, Stream fileStream, string fileName, string mimeType)
+        public static void UploadFile(this WebRequest webRequest, Stream fileStream, string fileName, string mimeType,
+            string acceptContentType = null, Action<HttpWebRequest> requestFilter = null)
         {
             var httpReq = (HttpWebRequest)webRequest;
             httpReq.UserAgent = Env.ServerUserAgent;
             httpReq.Method = "POST";
             httpReq.AllowAutoRedirect = false;
             httpReq.KeepAlive = false;
+
+            if (acceptContentType != null)
+                httpReq.Accept = acceptContentType;
+
+            if (requestFilter != null)
+                requestFilter(httpReq);
 
             var boundary = "----------------------------" + DateTime.UtcNow.Ticks.ToString("x");
 

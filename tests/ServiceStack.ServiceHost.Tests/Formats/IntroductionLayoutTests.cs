@@ -111,7 +111,7 @@ page of our web-site. We'll use this in conjunction
 with a layout template. The content you are seeing here
 comes from ^^^websiteTemplate.</p>
 <p>And obviously I can have code in here too. Here is the
-current date/year: 2012</p>
+current date/year: 2013</p>
 
         </div>
     </body>
@@ -212,7 +212,7 @@ page of our web-site. We'll use this in conjunction
 with a layout template. The content you are seeing here
 comes from ^^^websiteTemplate.</p>
 <p>And obviously I can have code in here too. Here is the
-current date/year: 2012</p>
+current date/year: 2013</p>
 
         </div>
         
@@ -251,13 +251,13 @@ current date/year: 2012</p>
     </div>
 </fieldset>".NormalizeNewLines();
 
-			var expectedHtml = 
+			var expectedHtml =
 @"<fieldset>
     <legend>Edit Product</legend>
     <div>
  <label for=""ProductID"">ProductID</label>    </div>
     <div>
- <input name=""ProductID"" type=""text"" value=""10"" />    </div>
+ <input id=""ProductID"" name=""ProductID"" type=""text"" value=""10"" />    </div>
 </fieldset>".NormalizeNewLines();
 
 			var product = new Product {ProductID = 10};

@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.Serialization;
+using System.Threading;
 using NUnit.Framework;
 using ServiceStack.Common;
 using ServiceStack.Common.Web;
@@ -56,6 +58,10 @@ namespace RazorRockstars.Web
 
     [Route("/reqstars/reset")]
     public class ResetReqstar : IReturnVoid { }
+
+    [Route("/viewstate")]
+    public class ViewState { }
+    public class ViewStateResponse { }
 
     [Route("/reqstars/{Id}", "GET")]
     public class GetReqstar : IReturn<Reqstar>
@@ -117,12 +123,46 @@ namespace RazorRockstars.Web
         public string Message { get; set; }
     }
 
-    public class ThrowResponse 
+    public class ThrowResponse
     {
         public string Result { get; set; }
         public ResponseStatus ResponseStatus { get; set; }
     }
-    
+
+    [Api("Service Description")]
+    [Route("/annotated/{Name}", "GET", Summary = @"GET Summary", Notes = "GET Notes")]
+    [Route("/annotated/{Name}", "POST", Summary = @"POST Summary", Notes = "POST Notes")]
+    public class Annotated
+    {
+        [ApiMember(Name = "Name", Description = "Name Description",
+                   ParameterType = "path", DataType = "string", IsRequired = true)]
+        public string Name { get; set; }
+    }
+
+    [Route("/headers/{Text}")]
+    public class Headers : IReturn<HttpWebResponse>
+    {
+        public string Text { get; set; }
+    }
+
+    [Route("/strings/{Text}")]
+    public class Strings : IReturn<string>
+    {
+        public string Text { get; set; }
+    }
+
+    [Route("/bytes/{Text}")]
+    public class Bytes : IReturn<byte[]>
+    {
+        public string Text { get; set; }
+    }
+
+    [Route("/streams/{Text}")]
+    public class Streams : IReturn<Stream>
+    {
+        public string Text { get; set; }
+    }
+
     public class ReqstarsService : Service
     {
         public static Reqstar[] SeedData = new[] {
@@ -201,6 +241,36 @@ namespace RazorRockstars.Web
                     request.Message);
             }
             throw new NotImplementedException(request.Message + " is not implemented");
+        }
+
+        public ViewStateResponse Get(ViewState request)
+        {
+            return new ViewStateResponse();
+        }
+
+        public Annotated Any(Annotated request)
+        {
+            return request;
+        }
+
+        public void Any(Headers request)
+        {
+            base.Request.Headers["X-Response"] = request.Text;
+        }
+
+        public string Any(Strings request)
+        {
+            return "Hello, " + (request.Text ?? "World!");
+        }
+
+        public byte[] Any(Bytes request)
+        {
+            return Guid.Parse(request.Text).ToByteArray();
+        }
+
+        public byte[] Any(Streams request)
+        {
+            return Guid.Parse(request.Text).ToByteArray();
         }
     }
 
@@ -618,6 +688,40 @@ namespace RazorRockstars.Web
             Assert.That(response.Id, Is.EqualTo(request.Id));
             Assert.That(response.FirstName, Is.EqualTo(request.FirstName));
             Assert.That(response.LastName, Is.EqualTo(request.LastName));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Can_download_Headers_response(IRestClient client)
+        {
+            HttpWebResponse response = client.Get(new Headers { Text = "Test" });
+            Assert.That(response.Headers["X-Response"], Is.EqualTo("Test"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Can_download_Strings_response(IRestClient client)
+        {
+            string response = client.Get(new Strings { Text = "Test" });
+            Assert.That(response, Is.EqualTo("Hello, Test"));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Can_download_Bytes_response(IRestClient client)
+        {
+            var guid = Guid.NewGuid();
+            byte[] response = client.Get(new Bytes { Text = guid.ToString() });
+            Assert.That(new Guid(response), Is.EqualTo(guid));
+        }
+
+        [Test, TestCaseSource("RestClients")]
+        public void Can_download_Streams_response(IRestClient client)
+        {
+            var guid = Guid.NewGuid();
+            Stream response = client.Get(new Streams { Text = guid.ToString() });
+            using (response)
+            {
+                var bytes = response.ReadFully();
+                Assert.That(new Guid(bytes), Is.EqualTo(guid));
+            }
         }
     }
 }

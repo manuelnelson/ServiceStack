@@ -45,7 +45,13 @@ namespace ServiceStack.WebHost.Endpoints.Support.Mocks
 		public string OperationName { get; set; }
 		public string ContentType { get; set; }
 		public string HttpMethod { get; set; }
-		public string UserAgent { get; set; }
+
+	    public bool IsLocal
+	    {
+	        get { return true; }
+	    }
+
+	    public string UserAgent { get; set; }
 
 		public IDictionary<string, Cookie> Cookies { get; set; }
 
@@ -62,7 +68,9 @@ namespace ServiceStack.WebHost.Endpoints.Support.Mocks
 
 		public NameValueCollection FormData { get; set; }
 
-		public Dictionary<string, object> Items
+        public bool UseBufferedStream { get; set; }
+
+	    public Dictionary<string, object> Items
 		{
 			get; private set;
 		}
@@ -89,6 +97,8 @@ namespace ServiceStack.WebHost.Endpoints.Support.Mocks
 		public string UserHostAddress { get; set; }
 
         public string RemoteIp { get; set; }
+        public string XForwardedFor { get; set; }
+        public string XRealIp { get; set; }
 
 	    public bool IsSecureConnection { get; set; }
 		public string[] AcceptTypes { get; set; }

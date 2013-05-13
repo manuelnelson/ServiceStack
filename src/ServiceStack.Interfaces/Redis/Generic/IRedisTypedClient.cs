@@ -5,7 +5,7 @@
 // Authors:
 //   Demis Bellot (demis.bellot@gmail.com)
 //
-// Copyright 2010 Liquidbit Ltd.
+// Copyright 2013 ServiceStack.
 //
 // Licensed under the same terms of Redis and ServiceStack: new BSD license.
 //
@@ -112,6 +112,8 @@ namespace ServiceStack.Redis.Generic
 		int GetListCount(IRedisList<T> fromList);
 		T GetItemFromList(IRedisList<T> fromList, int listIndex);
 		void SetItemInList(IRedisList<T> toList, int listIndex, T value);
+        void InsertBeforeItemInList(IRedisList<T> toList, T pivot, T value);
+        void InsertAfterItemInList(IRedisList<T> toList, T pivot, T value);
 
 		//Queue operations
 		void EnqueueItemOnList(IRedisList<T> fromList, T item);
@@ -123,6 +125,7 @@ namespace ServiceStack.Redis.Generic
 		T PopItemFromList(IRedisList<T> fromList);
 		T BlockingPopItemFromList(IRedisList<T> fromList, TimeSpan? timeOut);
 		T PopAndPushItemBetweenLists(IRedisList<T> fromList, IRedisList<T> toList);
+        T BlockingPopAndPushItemBetweenLists(IRedisList<T> fromList, IRedisList<T> toList, TimeSpan? timeOut);
 
 		//Sorted Set operations
 		void AddItemToSortedSet(IRedisSortedSet<T> toSet, T value);

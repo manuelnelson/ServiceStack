@@ -4,6 +4,7 @@ using System.IO;
 using ServiceStack.Common;
 using ServiceStack.Common.Web;
 using ServiceStack.Html;
+using ServiceStack.IO;
 using ServiceStack.Logging;
 using ServiceStack.Markdown;
 using ServiceStack.ServiceHost;
@@ -137,7 +138,7 @@ namespace ServiceStack.WebHost.Endpoints.Formats
                 {
                     if (pathInfo.EndsWith(".md"))
                     {
-                        pathInfo = pathInfo.EndsWith(DefaultPage + ".md", StringComparison.InvariantCultureIgnoreCase)
+                        pathInfo = pathInfo.EndsWithIgnoreCase(DefaultPage + ".md")
                             ? pathInfo.Substring(0, pathInfo.Length - (DefaultPage + ".md").Length)
                             : pathInfo.WithoutExtension();
 
@@ -198,10 +199,18 @@ namespace ServiceStack.WebHost.Endpoints.Formats
             return GetViewPage(viewName, httpReq) != null;
         }
 
-        public string RenderPartial(string pageName, object model, bool renderHtml, IHttpRequest httpReq = null)
+        public string RenderPartial(string pageName, object model, bool renderHtml, StreamWriter writer, HtmlHelper htmlHelper = null)
         {
-            var markdownPage = ReloadIfNeeded(GetViewPage(pageName, httpReq));
-            return RenderDynamicPage(markdownPage, pageName, model, renderHtml, false);
+            var markdownPage = ReloadIfNeeded(GetViewPage(pageName, htmlHelper.GetHttpRequest()));
+            var output = RenderDynamicPage(markdownPage, pageName, model, renderHtml, false);
+            
+            if (writer != null)
+            {
+                writer.Write(output);
+                writer.Flush();
+                return null;
+            }
+            return output;
         }
 
         public MarkdownPage GetViewPage(string viewName, IHttpRequest httpReq)
