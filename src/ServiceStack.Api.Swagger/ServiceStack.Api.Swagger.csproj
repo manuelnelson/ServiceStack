@@ -5,7 +5,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{01D3F057-7984-498F-8B0A-EB375701E204}</ProjectGuid>
+    <ProjectGuid>{52654630-6EFC-49D9-8812-5B8EE279E1C9}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ServiceStack.Api.Swagger</RootNamespace>

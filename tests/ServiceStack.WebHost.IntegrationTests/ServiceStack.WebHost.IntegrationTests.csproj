@@ -265,10 +265,6 @@
     <Compile Include="Tests\WebServicesTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ServiceStack.Api.Swagger\ServiceStack.Api.Swagger.csproj">
-      <Project>{01D3F057-7984-498F-8B0A-EB375701E204}</Project>
-      <Name>ServiceStack.Api.Swagger</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\ServiceStack.Authentication.OpenId\ServiceStack.Authentication.OpenId.csproj">
       <Project>{6E240294-9D93-4C09-9BB0-38D82A22DEEE}</Project>
       <Name>ServiceStack.Authentication.OpenId</Name>
